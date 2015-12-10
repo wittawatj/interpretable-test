@@ -20,10 +20,12 @@ import math
 import numpy as np
 import os
 
+
 def job_met_heu(tr, te, r, ni, n):
-    """MeanEmbeddingTest with test_locs randomized"""
+    """MeanEmbeddingTest with test_locs randomized. 
+    tr unused."""
     # MeanEmbeddingTest random locations
-    met_heu = tst.MeanEmbeddingTest.create_fit_gauss_heuristic(tr, J, alpha, seed=180)
+    met_heu = tst.MeanEmbeddingTest.create_fit_gauss_heuristic(te, J, alpha, seed=180)
     met_heu_test = met_heu.perform_test(te)
     return met_heu_test
 
@@ -39,6 +41,21 @@ def job_met_opt(tr, te, r, ni, n):
     met_opt_test  = met_opt.perform_test(te)
     return met_opt_test
 
+def job_scf_randn(tr, te, r, ni, n):
+    """SmoothCFTest with frequencies drawn from randn(). tr unused."""
+    scf_randn = tst.SmoothCFTest.create_randn(te, J, alpha, seed=19)
+    scf_randn_test = scf_randn.perform_test(te)
+    return scf_randn_test
+
+def job_scf_opt(tr, te, r, ni, n):
+    """SmoothCFTest with frequencies optimized."""
+    op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
+            'gwidth_step_size': 0.01, 'seed': 82, 'tol_fun': 1e-4}
+    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
+    scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
+    scf_opt_test = scf_opt.perform_test(te)
+    return scf_opt_test
+
 
 # Define our custom Job, which inherits from base class IndependentJob
 class Ex1Job(IndependentJob):
@@ -46,7 +63,7 @@ class Ex1Job(IndependentJob):
     def __init__(self, aggregator, sample_source, prob_label, rep, ni, n, job_func):
         d = sample_source.dim()
         ntr = int(n*tr_proportion)
-        walltime = 60*59*24 if d*ntr/5 >= 10000 else 60*59
+        walltime = 60*59*24 if d*ntr/4 >= 10000 else 60*59
         memory = int(ntr*5e-3) + 50
 
         IndependentJob.__init__(self, aggregator, walltime=walltime,
@@ -91,19 +108,21 @@ class Ex1Job(IndependentJob):
 # pickle is used when collecting the results from the submitted jobs.
 from freqopttest.ex.ex1_power_vs_n import job_met_heu
 from freqopttest.ex.ex1_power_vs_n import job_met_opt
+from freqopttest.ex.ex1_power_vs_n import job_scf_randn
+from freqopttest.ex.ex1_power_vs_n import job_scf_opt
 from freqopttest.ex.ex1_power_vs_n import Ex1Job
 
 
 #--- experimental setting -----
 ex = 1
-sample_sizes = [i*1000 for i in range(1, 8+1)]
-# number of test locations J
+sample_sizes = [i*1000 for i in range(1, 14+1)]
+# number of test locations / test frequencies J
 J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 100
-method_job_funcs = [job_met_heu, job_met_opt]
+reps = 50
+method_job_funcs = [job_met_heu, job_met_opt, job_scf_randn, job_scf_opt]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (ni, r) already exists.
@@ -113,12 +132,12 @@ is_rerun = False
 def get_sample_source():
     """Return a SampleSource representing the problem, and a label for file 
     naming in a 2-tuple"""
-    #sample_source = data.SSBlobs()
-    #label = 'SSBlobs'
+    sample_source = data.SSBlobs()
+    label = 'SSBlobs'
 
-    d = 20
-    sample_source = data.SSGaussMeanDiff(d=d, my=1.0)
-    label = 'gmd_d%d'%d
+    #d = 20
+    #sample_source = data.SSGaussMeanDiff(d=d, my=1.0)
+    #label = 'gmd_d%d'%d
 
     return (sample_source, label)
 

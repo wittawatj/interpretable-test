@@ -175,6 +175,10 @@ class TSTData(object):
         dx = self.X.shape[1]
         return dx
 
+    def dim(self):
+        """Same as dimension()"""
+        return self.dimension()
+
     def stack_xy(self):
         """Stack the two datasets together"""
         return np.vstack((self.X, self.Y))
