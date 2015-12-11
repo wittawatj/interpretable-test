@@ -56,6 +56,11 @@ def job_scf_opt(tr, te, r, ni, n):
     scf_opt_test = scf_opt.perform_test(te)
     return scf_opt_test
 
+def job_hotelling(tr, te, r, ni, n):
+    """Hotelling T-squared test"""
+    htest = tst.HotellingT2Test(alpha=alpha)
+    return htest.perform_test(te)
+
 
 # Define our custom Job, which inherits from base class IndependentJob
 class Ex1Job(IndependentJob):
@@ -110,6 +115,7 @@ from freqopttest.ex.ex1_power_vs_n import job_met_heu
 from freqopttest.ex.ex1_power_vs_n import job_met_opt
 from freqopttest.ex.ex1_power_vs_n import job_scf_randn
 from freqopttest.ex.ex1_power_vs_n import job_scf_opt
+from freqopttest.ex.ex1_power_vs_n import job_hotelling
 from freqopttest.ex.ex1_power_vs_n import Ex1Job
 
 
@@ -122,7 +128,8 @@ alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
 reps = 50
-method_job_funcs = [job_met_heu, job_met_opt, job_scf_randn, job_scf_opt]
+method_job_funcs = [job_met_heu, job_met_opt, job_scf_randn, job_scf_opt,
+        job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (ni, r) already exists.

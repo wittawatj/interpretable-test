@@ -37,11 +37,11 @@ class TwoSampleTest(object):
         """Compute the test statistic"""
         raise NotImplementedError()
 
-    @abstractmethod
-    def visual_test(self, tst_data):
-        """Perform the test and plot the results. This is suitable for use 
-        with IPython."""
-        raise NotImplementedError()
+    #@abstractmethod
+    #def visual_test(self, tst_data):
+    #    """Perform the test and plot the results. This is suitable for use 
+    #    with IPython."""
+    #    raise NotImplementedError()
     ##@abstractmethod
     #def pvalue(self):
     #   """Compute and return the p-value of the test"""
@@ -68,6 +68,44 @@ class TSTFactory(object):
         """tst_data: an instance of TSTData.  """ 
         pass
 
+
+class HotellingT2Test(TwoSampleTest):
+    """Two-sample test with Hotelling T-squared statistic.
+    Techinical details follow "Applied Multivariate Analysis" of Neil H. Timm.
+    See page 156.
+    
+    """
+    def __init__(self, alpha=0.01):
+        self.alpha = alpha 
+
+    def perform_test(self, tst_data):
+        """perform the two-sample test and return values computed in a dictionary:
+        {alpha: 0.01, pvalue: 0.0002, test_stat: 2.3, h0_rejected: True, ...}
+        tst_data: an instance of TSTData
+        """
+        d = tst_data.dim()
+        chi2_stat = self.compute_stat(tst_data)
+        pvalue = stats.chi2.sf(chi2_stat, d)
+        alpha = self.alpha
+        results = {'alpha': self.alpha, 'pvalue': pvalue, 'test_stat': chi2_stat,
+                'h0_rejected': pvalue < alpha}
+        return results
+
+    def compute_stat(self, tst_data):
+        """Compute the test statistic"""
+        X, Y = tst_data.xy()
+        #if X.shape[0] != Y.shape[0]:
+        #    raise ValueError('Require nx = ny for now. Will improve if needed.')
+        nx = X.shape[0]
+        ny = Y.shape[0]
+        mx = np.mean(X, 0)
+        my = np.mean(Y, 0)
+        mdiff = mx-my
+        sx = np.cov(X.T)
+        sy = np.cov(Y.T)
+        s = sx/nx + sy/ny
+        chi2_stat = np.linalg.solve(s, mdiff).dot(mdiff)
+        return chi2_stat
 
 class GammaMMDTest(TwoSampleTest):
     """MMD test by fitting a Gamma distribution to the test statistic (MMD^2) 
@@ -178,10 +216,10 @@ class SmoothCFTest(TwoSampleTest):
                 'h0_rejected': pvalue < alpha}
         return results
 
-    def visual_test(self, tst_data):
-        """Perform the test and plot the results. This is suitable for use 
-        with IPython."""
-        raise NotImplementedError()
+    #def visual_test(self, tst_data):
+    #    """Perform the test and plot the results. This is suitable for use 
+    #    with IPython."""
+    #    raise NotImplementedError()
 
     
     #---------------------------------
@@ -494,6 +532,15 @@ class MeanEmbeddingTest(TwoSampleTest):
         in the center of the two. Then, draw test locations from the three Gaussians.
         """
         pass
+
+# Used by SmoothCFTest and MeanEmbeddingTest
+def optimize_gaussian_width(tst_data, T, func_z, J=10, max_iter=400, 
+        gwidth_step_size=0.01, batch_proportion=1.0, 
+        tol_fun=1e-3 ):
+    """Optimize the Gaussian kernel width by maximizing the test power.
+    This does the same thing as optimize_T_gaussian_width() without optimizing 
+    T.
+    """
 
 
 # Used by SmoothCFTest and MeanEmbeddingTest
