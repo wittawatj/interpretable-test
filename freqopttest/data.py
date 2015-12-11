@@ -186,6 +186,17 @@ class TSTData(object):
     def xy(self):
         """Return (X, Y) as a tuple"""
         return (self.X, self.Y)
+
+    def mean_std(self):
+        """Compute the std of each dim. of X, and take the average.
+        Repeat for Y. Return the average of the two numbers. """
+
+        X, Y = self.xy()
+        # Gaussian width = mean of stds of all dimensions
+        stdx = np.mean(np.std(X, 0))
+        stdy = np.mean(np.std(Y, 0))
+        mstd = (stdx + stdy)/2.0
+        return mstd
     
     def split_tr_te(self, tr_proportion=0.5, seed=820):
         """Split the dataset into training and test sets. Assume n is the same 

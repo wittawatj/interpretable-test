@@ -232,11 +232,7 @@ class SmoothCFTest(TwoSampleTest):
         rand_state = np.random.get_state()
         np.random.seed(seed)
 
-        X, Y = tst_data.xy()
-        # Gaussian width = mean of stds of all dimensions
-        stdx = np.mean(np.std(X, 0))
-        stdy = np.mean(np.std(Y, 0))
-        gamma = (stdx + stdy)/2.0
+        gamma = tst_data.mean_std()
 
         d = tst_data.dim()
         T = np.random.randn(J, d)
@@ -331,7 +327,7 @@ class SmoothCFTest(TwoSampleTest):
 
         func_z = SmoothCFTest.construct_z_theano
         # info = optimization info 
-        T, gamma, info = optimize_T_gaussian_width(tst_data, T0, func_z, J=J, 
+        T, gamma, info = optimize_T_gaussian_width(tst_data, T0, func_z, 
                 max_iter=max_iter, T_step_size=freqs_step_size, 
                 gwidth_step_size=gwidth_step_size, batch_proportion=batch_proportion,
                 tol_fun=tol_fun)
@@ -340,6 +336,31 @@ class SmoothCFTest(TwoSampleTest):
                 'gwidths': info['gwidths'], 'obj_values': info['obj_values']}
         return (T, gamma, ninfo  )
 
+    @staticmethod
+    def optimize_gwidth(tst_data, T, max_iter=400, 
+            gwidth_step_size=0.1, batch_proportion=1.0, tol_fun=1e-3):
+        """Optimize the Gaussian kernel width by 
+        maximizing the test power, fixing the test frequencies to T. X, Y should
+        not be the same data as used in the actual test (i.e., should be a
+        held-out set). 
+
+        - max_iter: #gradient descent iterations
+        - batch_proportion: (0,1] value to be multipled with nx giving the batch 
+            size in stochastic gradient. 1 = full gradient ascent.
+        - tol_fun: termination tolerance of the objective value
+        
+        Return (gaussian_width, info)
+        """
+
+        func_z = SmoothCFTest.construct_z_theano
+        # info = optimization info 
+        gamma, info = optimize_gaussian_width(tst_data, T, func_z, 
+                max_iter=max_iter, gwidth_step_size=gwidth_step_size,
+                batch_proportion=batch_proportion, tol_fun=tol_fun)
+
+        ninfo = {'test_freqs': T, 'gwidths': info['gwidths'], 'obj_values':
+                info['obj_values']}
+        return ( gamma, ninfo  )
 
 class MeanEmbeddingTest(TwoSampleTest):
     """Class for two-sample test using squared difference of mean embeddings. 
@@ -488,6 +509,23 @@ class MeanEmbeddingTest(TwoSampleTest):
 
         :return a theano function T |-> Lambda(T)
         """
+
+        T0 = MeanEmbeddingTest.init_locs_randn(tst_data, n_test_locs, seed=seed)
+        func_z = MeanEmbeddingTest.construct_z_theano
+        # info = optimization info 
+        T, gamma, info = optimize_T_gaussian_width(tst_data, T0, func_z, 
+                max_iter=max_iter, T_step_size=locs_step_size, 
+                gwidth_step_size=gwidth_step_size, batch_proportion=batch_proportion,
+                tol_fun=tol_fun)
+
+        ninfo = {'test_locs': info['Ts'], 'test_locs0': info['T0'], 
+                'gwidths': info['gwidths'], 'obj_values': info['obj_values']}
+        return (T, gamma, ninfo  )
+
+    @staticmethod 
+    def init_locs_randn(tst_data, n_test_locs, seed=1):
+        """Fit a Gaussian to the merged data of the two samples and draw 
+        n_test_locs points from the Gaussian"""
         # set the seed
         rand_state = np.random.get_state()
         np.random.seed(seed)
@@ -497,20 +535,36 @@ class MeanEmbeddingTest(TwoSampleTest):
         xy = np.vstack((X, Y))
         mean_xy = np.mean(xy, 0)
         cov_xy = np.cov(xy.T)
-        T0 = np.random.multivariate_normal(mean_xy, cov_xy, J)
+        T0 = np.random.multivariate_normal(mean_xy, cov_xy, n_test_locs)
         # reset the seed back to the original
         np.random.set_state(rand_state)
+        return T0
+
+    @staticmethod
+    def optimize_gwidth(tst_data, T, max_iter=400, 
+            gwidth_step_size=0.1, batch_proportion=1.0, tol_fun=1e-3):
+        """Optimize the Gaussian kernel width by 
+        maximizing the test power, fixing the test locations to T. X, Y should
+        not be the same data as used in the actual test (i.e., should be a
+        held-out set). 
+
+        - max_iter: #gradient descent iterations
+        - batch_proportion: (0,1] value to be multipled with nx giving the batch 
+            size in stochastic gradient. 1 = full gradient ascent.
+        - tol_fun: termination tolerance of the objective value
+        
+        Return (gaussian_width, info)
+        """
 
         func_z = MeanEmbeddingTest.construct_z_theano
         # info = optimization info 
-        T, gamma, info = optimize_T_gaussian_width(tst_data, T0, func_z, J=n_test_locs, 
-                max_iter=max_iter, T_step_size=locs_step_size, 
-                gwidth_step_size=gwidth_step_size, batch_proportion=batch_proportion,
-                tol_fun=tol_fun)
+        gamma, info = optimize_gaussian_width(tst_data, T, func_z, 
+                max_iter=max_iter, gwidth_step_size=gwidth_step_size,
+                batch_proportion=batch_proportion, tol_fun=tol_fun)
 
-        ninfo = {'test_locs': info['Ts'], 'test_locs0': info['T0'], 
-                'gwidths': info['gwidths'], 'obj_values': info['obj_values']}
-        return (T, gamma, ninfo  )
+        ninfo = {'test_locs': T, 'gwidths': info['gwidths'], 'obj_values':
+                info['obj_values']}
+        return ( gamma, ninfo  )
 
 
     @staticmethod
@@ -534,17 +588,73 @@ class MeanEmbeddingTest(TwoSampleTest):
         pass
 
 # Used by SmoothCFTest and MeanEmbeddingTest
-def optimize_gaussian_width(tst_data, T, func_z, J=10, max_iter=400, 
-        gwidth_step_size=0.01, batch_proportion=1.0, 
+def optimize_gaussian_width(tst_data, T, func_z, max_iter=400, 
+        gwidth_step_size=0.1, batch_proportion=1.0, 
         tol_fun=1e-3 ):
     """Optimize the Gaussian kernel width by maximizing the test power.
     This does the same thing as optimize_T_gaussian_width() without optimizing 
-    T.
+    T (T = test locations / test frequencies).
+
+    Return (optimized Gaussian width, info)
     """
+
+    X, Y = tst_data.xy()
+    nx, d = X.shape
+    # initialize Theano variables
+    Tth = theano.shared(T, name='T')
+    Xth = tensor.dmatrix('X')
+    Yth = tensor.dmatrix('Y')
+    it = theano.shared(1, name='iter')
+    # square root of the Gaussian width. Use square root to handle the 
+    # positivity constraint by squaring it later.
+    gamma_sq_init = tst_data.mean_std()**0.5
+    gamma_sq_th = theano.shared(gamma_sq_init, name='gamma')
+
+    #sqr(x) = x^2
+    Z = func_z(Xth, Yth, Tth, tensor.sqr(gamma_sq_th))
+    W = Z.sum(axis=0)/nx
+    # covariance 
+    Z0 = Z - W
+    Sig = Z0.T.dot(Z0)/nx
+
+    # gradient computation does not support solve()
+    #s = slinalg.solve(Sig, W).dot(nx*W)
+    s = nlinalg.matrix_inverse(Sig).dot(W).dot(W)*nx
+    gra_gamma_sq = tensor.grad(s, gamma_sq_th)
+    step_pow = 0.5
+    func = theano.function(inputs=[Xth, Yth], outputs=s, 
+           updates=[
+              (it, it+1), 
+              (gamma_sq_th, gamma_sq_th+gwidth_step_size*gra_gamma_sq\
+                      /it**step_pow/tensor.sum(gra_gamma_sq**2)**0.5 ) 
+              ] 
+           )
+    # //////// run gradient ascent //////////////
+    S = np.zeros(max_iter)
+    gams = np.zeros(max_iter)
+    for t in range(max_iter):
+        # stochastic gradient ascent
+        ind = np.random.choice(nx, min(int(batch_proportion*nx), nx), replace=False)
+        # record objective values 
+        S[t] = func(X[ind, :], Y[ind, :])
+        gams[t] = gamma_sq_th.get_value()**2
+
+        # check the change of the objective values 
+        if t >= 2 and abs(S[t]-S[t-1]) <= tol_fun:
+            break
+
+    S = S[:t]
+    gams = gams[:t]
+
+    # optimization info 
+    info = {'T': T, 'gwidths': gams, 'obj_values': S}
+    return (gams[-1], info  )
+
+
 
 
 # Used by SmoothCFTest and MeanEmbeddingTest
-def optimize_T_gaussian_width(tst_data, T0, func_z, J=10, max_iter=400, 
+def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400, 
         T_step_size=0.05, gwidth_step_size=0.01, batch_proportion=1.0, 
         tol_fun=1e-3 ):
     """Optimize the T (test locations for MeanEmbeddingTest, frequencies for 
@@ -554,11 +664,11 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, J=10, max_iter=400,
     Optimize the empirical version of Lambda(T) i.e., the criterion used 
     to optimize the test locations.
 
-    - T0: Jxd numpy array. initial value of T. 
+    - T0: Jxd numpy array. initial value of T,  where
+      J = the number of test locations/frequencies
     - func_z: function that works on Theano variables 
         to construct features to be used for the T^2 test. 
         (X, Y, T, gaussian_width) |-> n x J'
-    - J: the number of test locations/frequencies
     - max_iter: #gradient descent iterations
     - batch_proportion: (0,1] value to be multipled with nx giving the batch 
         size in stochastic gradient. 1 = full gradient ascent.
@@ -576,7 +686,7 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, J=10, max_iter=400,
     it = theano.shared(1, name='iter')
     # square root of the Gaussian width. Use square root to handle the 
     # positivity constraint by squaring it later.
-    gamma_sq_init = 1.0
+    gamma_sq_init = tst_data.mean_std()**0.5
     gamma_sq_th = theano.shared(gamma_sq_init, name='gamma')
 
     #sqr(x) = x^2
@@ -605,6 +715,7 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, J=10, max_iter=400,
 
     # //////// run gradient ascent //////////////
     S = np.zeros(max_iter)
+    J = T0.shape[0]
     Ts = np.zeros((max_iter, J, d))
     gams = np.zeros(max_iter)
     for t in range(max_iter):
@@ -626,4 +737,5 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, J=10, max_iter=400,
     # optimization info 
     info = {'Ts': Ts, 'T0':T0, 'gwidths': gams, 'obj_values': S}
     return (Ts[-1], gams[-1], info  )
+
 

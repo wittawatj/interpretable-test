@@ -41,6 +41,17 @@ def job_met_opt(tr, te, r, ni, n):
     met_opt_test  = met_opt.perform_test(te)
     return met_opt_test
 
+def job_met_gwopt(tr, te, r, ni, n):
+    """MeanEmbeddingTest. Optimize only the Gaussian width. 
+    Fix the test locations."""
+    op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
+                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
+    # optimize on the training set
+    T_randn = tst.MeanEmbeddingTest.init_locs_randn(tr, J, seed=r)
+    gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
+    met_gwopt = tst.MeanEmbeddingTest(T_randn, gwidth, alpha)
+    return met_gwopt.perform_test(te)
+
 def job_scf_randn(tr, te, r, ni, n):
     """SmoothCFTest with frequencies drawn from randn(). tr unused."""
     scf_randn = tst.SmoothCFTest.create_randn(te, J, alpha, seed=19)
@@ -55,6 +66,22 @@ def job_scf_opt(tr, te, r, ni, n):
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
     return scf_opt_test
+
+def job_scf_gwopt(tr, te, r, ni, n):
+    """SmoothCFTest. Optimize only the Gaussian width. 
+    Fix the test frequencies"""
+    op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
+                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
+    # optimize on the training set
+    rand_state = np.random.get_state()
+    np.random.seed(seed=r)
+    ss, _ = get_sample_source()
+    T_randn = np.random.randn(J, ss.dim())
+    np.random.set_state(rand_state)
+
+    gwidth, info = tst.SmoothCFTest.optimize_gwidth(tr, T_randn, **op_gwidth)
+    scf_gwopt = tst.SmoothCFTest(T_randn, gwidth, alpha)
+    return scf_gwopt.perform_test(te)
 
 def job_hotelling(tr, te, r, ni, n):
     """Hotelling T-squared test"""
@@ -113,8 +140,10 @@ class Ex1Job(IndependentJob):
 # pickle is used when collecting the results from the submitted jobs.
 from freqopttest.ex.ex1_power_vs_n import job_met_heu
 from freqopttest.ex.ex1_power_vs_n import job_met_opt
+from freqopttest.ex.ex1_power_vs_n import job_met_gwopt
 from freqopttest.ex.ex1_power_vs_n import job_scf_randn
 from freqopttest.ex.ex1_power_vs_n import job_scf_opt
+from freqopttest.ex.ex1_power_vs_n import job_scf_gwopt
 from freqopttest.ex.ex1_power_vs_n import job_hotelling
 from freqopttest.ex.ex1_power_vs_n import Ex1Job
 
@@ -128,7 +157,8 @@ alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
 reps = 50
-method_job_funcs = [job_met_heu, job_met_opt, job_scf_randn, job_scf_opt,
+method_job_funcs = [job_met_heu, job_met_opt, job_met_gwopt, 
+        job_scf_randn, job_scf_opt, job_scf_gwopt,
         job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
