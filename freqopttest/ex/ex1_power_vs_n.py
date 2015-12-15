@@ -34,7 +34,7 @@ def job_met_opt(tr, te, r, ni, n):
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
     met_opt_options = {'n_test_locs': J, 'max_iter': 300, 
-            'locs_step_size': 0.1, 'gwidth_step_size': 0.01, 'seed': 750,
+            'locs_step_size': 0.1, 'gwidth_step_size': 0.02, 'seed': r,
             'tol_fun': 1e-4}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
@@ -61,7 +61,7 @@ def job_scf_randn(tr, te, r, ni, n):
 def job_scf_opt(tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
     op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
-            'gwidth_step_size': 0.01, 'seed': 82, 'tol_fun': 1e-4}
+            'gwidth_step_size': 0.02, 'seed': r, 'tol_fun': 1e-4}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -150,16 +150,20 @@ from freqopttest.ex.ex1_power_vs_n import Ex1Job
 
 #--- experimental setting -----
 ex = 1
-sample_sizes = [i*1000 for i in range(1, 14+1)]
+# SSBlobs
+#sample_sizes = [i*1000 for i in range(1, 14+1)]
+
+# gmd_d20
+sample_sizes = [i*1000 for i in range(1, 8+1)]
+
 # number of test locations / test frequencies J
 J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
 reps = 50
-method_job_funcs = [job_met_heu, job_met_opt, job_met_gwopt, 
-        job_scf_randn, job_scf_opt, job_scf_gwopt,
-        job_hotelling]
+method_job_funcs = [ job_met_opt, job_met_gwopt, 
+         job_scf_opt, job_scf_gwopt, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (ni, r) already exists.
@@ -169,12 +173,17 @@ is_rerun = False
 def get_sample_source():
     """Return a SampleSource representing the problem, and a label for file 
     naming in a 2-tuple"""
-    sample_source = data.SSBlobs()
-    label = 'SSBlobs'
+    #sample_source = data.SSBlobs()
+    #label = 'SSBlobs'
 
     #d = 20
     #sample_source = data.SSGaussMeanDiff(d=d, my=1.0)
     #label = 'gmd_d%d'%d
+
+    # The null is true
+    d = 5
+    sample_source = data.SSSameGauss(d=d)
+    label = 'sg_d%d'%d
 
     return (sample_source, label)
 

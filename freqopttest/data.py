@@ -80,6 +80,27 @@ def gen_blobs(stretch, angle, blob_distance, num_blobs, num_samples):
     mu = np.random.randint(0, num_blobs,(num_samples, 2))*blob_distance - mean
     return np.random.randn(num_samples,2).dot(mod_matix) + mu
 
+class SSSameGauss(SampleSource):
+    """Two same standard Gaussians for P, Q. The null hypothesis 
+    H0: P=Q is true."""
+    def __init__(self, d):
+        """
+        d: dimension of the data 
+        """
+        self.d = d
+
+    def dim(self):
+        return self.d
+
+    def sample(self, n, seed):
+        rstate = np.random.get_state()
+        np.random.seed(seed)
+
+        d = self.d
+        X = np.random.randn(n, d)
+        Y = np.random.randn(n, d) 
+        np.random.set_state(rstate)
+        return TSTData(X, Y, label='sg_d%d'%self.d)
 
 class SSGaussMeanDiff(SampleSource):
     """Toy dataset one in Chwialkovski et al., 2015. 
@@ -104,7 +125,7 @@ class SSGaussMeanDiff(SampleSource):
         X = np.random.randn(n, d)
         Y = np.random.randn(n, d) + mean_y
         np.random.set_state(rstate)
-        return TSTData(X, Y, label='gmd')
+        return TSTData(X, Y, label='gmd_d%d'%self.d)
 
 class SSGaussVarDiff(SampleSource):
     """Toy dataset one in Chwialkovski et al., 2015. 
