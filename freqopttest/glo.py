@@ -30,23 +30,26 @@ def ex_result_folder(ex):
         os.mkdir(fpath)
     return fpath
 
-def ex_result_file(ex, fname):
-    """Return the full path to the file identified by the file name under the 
-    result folder of the experiment ex. """
+def ex_result_file(ex, *relative_path ):
+    """Return the full path to the file identified by the relative path as a list 
+    of folders/files under the result folder of the experiment ex. """
     rf = ex_result_folder(ex)
-    return os.path.join(rf, fname)
+    return os.path.join(rf, *relative_path)
 
-def ex_save_result(ex, fname, result):
+def ex_save_result(ex, result, *relative_path):
     """Save a dictionary object result for the experiment ex. Serialization is 
-    done with pickle."""
-    fpath = ex_result_file(ex, fname)
+    done with pickle. 
+    EX: ex_save_result(1, result, 'data', 'result.p'). Save under result/ex1/data/result.p 
+    EX: ex_save_result(1, result, 'result.p'). Save under result/ex1/result.p 
+    """
+    fpath = ex_result_file(ex, *relative_path)
     with open(fpath, 'w') as f:
         # expect result to be a dictionary
         pickle.dump(result, f)
 
-def ex_load_result(ex, fname):
-    """Load a result identified by the file name fname from the experiment ex"""
-    fpath = ex_result_file(ex, fname)
+def ex_load_result(ex, *relative_path):
+    """Load a result identified by the  path from the experiment ex"""
+    fpath = ex_result_file(ex, *relative_path)
     if not os.path.isfile(fpath):
         raise ValueError('%s does not exist' % fpath)
 
@@ -55,10 +58,10 @@ def ex_load_result(ex, fname):
         result = pickle.load(f)
     return result
 
-def ex_file_exists(ex, fname):
+def ex_file_exists(ex, *relative_path):
     """Return true if the result file in under the specified experiment folder
     exists"""
-    fpath = ex_result_file(ex, fname)
+    fpath = ex_result_file(ex, *relative_path)
     return os.path.isfile(fpath)
 
 

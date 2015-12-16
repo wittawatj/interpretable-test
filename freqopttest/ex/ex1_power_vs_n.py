@@ -133,7 +133,7 @@ class Ex1Job(IndependentJob):
         func_name = job_func.__name__
         fname = '%s-%s-J%d_r%d_n%d_a%.3f_trp%.2f.p' \
                 %(prob_label, func_name, J, r, n, alpha, tr_proportion)
-        glo.ex_save_result(ex, fname, test_result)
+        glo.ex_save_result(ex, test_result, prob_label, fname)
 
 
 # This import is needed so that pickle knows about the class Ex1Job.
@@ -154,7 +154,10 @@ ex = 1
 #sample_sizes = [i*1000 for i in range(1, 14+1)]
 
 # gmd_d20
-sample_sizes = [i*1000 for i in range(1, 8+1)]
+#sample_sizes = [i*1000 for i in range(1, 8+1)]
+
+# sg_d5 
+sample_sizes = [i*2000 for i in range(1, 16)]
 
 # number of test locations / test frequencies J
 J = 5
@@ -215,9 +218,9 @@ def main():
                 func_name = f.__name__
                 fname = '%s-%s-J%d_r%d_n%d_a%.3f_trp%.2f.p' \
                     %(prob_label, func_name, J, r, n, alpha, tr_proportion)
-                if not is_rerun and glo.ex_file_exists(ex, fname):
+                if not is_rerun and glo.ex_file_exists(ex, prob_label, fname):
                     logger.info('%s exists. Load and return.'%fname)
-                    test_result = glo.ex_load_result(ex, fname)
+                    test_result = glo.ex_load_result(ex, prob_label, fname)
 
                     sra = SingleResultAggregator()
                     sra.submit_result(SingleResult(test_result))
@@ -258,7 +261,7 @@ def main():
     fname = 'ex1-%s-me%d_J%d_rs%d_nmi%d_nma%d_a%.3f_trp%.2f.p' \
         %(prob_label, n_methods, J, reps, min(sample_sizes), max(sample_sizes), alpha, 
                 tr_proportion)
-    glo.ex_save_result(ex, fname, results)
+    glo.ex_save_result(ex, results, prob_label, fname)
 
 
 if __name__ == '__main__':
