@@ -33,9 +33,9 @@ def job_met_opt(tr, te, r, ni, n):
     """MeanEmbeddingTest with test locations optimzied.
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 300, 
-            'locs_step_size': 0.1, 'gwidth_step_size': 0.02, 'seed': r,
-            'tol_fun': 1e-4}
+    met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
+            'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r,
+            'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
@@ -44,8 +44,8 @@ def job_met_opt(tr, te, r, ni, n):
 def job_met_gwopt(tr, te, r, ni, n):
     """MeanEmbeddingTest. Optimize only the Gaussian width. 
     Fix the test locations."""
-    op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
+    op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
+                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
     T_randn = tst.MeanEmbeddingTest.init_locs_randn(tr, J, seed=r)
     gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
@@ -60,8 +60,8 @@ def job_scf_randn(tr, te, r, ni, n):
 
 def job_scf_opt(tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
-            'gwidth_step_size': 0.02, 'seed': r, 'tol_fun': 1e-4}
+    op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 0.1, 
+            'gwidth_step_size': 0.1, 'seed': r, 'tol_fun': 1e-3}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -70,8 +70,8 @@ def job_scf_opt(tr, te, r, ni, n):
 def job_scf_gwopt(tr, te, r, ni, n):
     """SmoothCFTest. Optimize only the Gaussian width. 
     Fix the test frequencies"""
-    op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
+    op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
+                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
     rand_state = np.random.get_state()
     np.random.seed(seed=r)
@@ -95,7 +95,7 @@ class Ex1Job(IndependentJob):
     def __init__(self, aggregator, sample_source, prob_label, rep, ni, n, job_func):
         d = sample_source.dim()
         ntr = int(n*tr_proportion)
-        walltime = 60*59*24 if d*ntr/4 >= 10000 else 60*59
+        walltime = 60*59*24 if d*ntr/10 >= 8000 else 60*59
         memory = int(ntr*5e-3) + 50
 
         IndependentJob.__init__(self, aggregator, walltime=walltime,
@@ -151,13 +151,14 @@ from freqopttest.ex.ex1_power_vs_n import Ex1Job
 #--- experimental setting -----
 ex = 1
 # SSBlobs
-#sample_sizes = [i*1000 for i in range(1, 14+1)]
+#sample_sizes = [i*2000 for i in range(1, 14+1)]
+#sample_sizes = [i*4000 for i in range(1, 5+1)]
 
-# gmd_d20
-#sample_sizes = [i*1000 for i in range(1, 8+1)]
+# gmd_d20, gmd_d10
+sample_sizes = [i*4000 for i in range(1, 5+1)]
 
 # sg_d5 
-sample_sizes = [i*2000 for i in range(1, 16)]
+#sample_sizes = [i*4000 for i in range(1, 5+1)]
 
 # number of test locations / test frequencies J
 J = 5
@@ -179,14 +180,14 @@ def get_sample_source():
     #sample_source = data.SSBlobs()
     #label = 'SSBlobs'
 
-    #d = 20
-    #sample_source = data.SSGaussMeanDiff(d=d, my=1.0)
-    #label = 'gmd_d%d'%d
+    d = 10
+    sample_source = data.SSGaussMeanDiff(d=d, my=1.0)
+    label = 'gmd_d%d'%d
 
     # The null is true
-    d = 5
-    sample_source = data.SSSameGauss(d=d)
-    label = 'sg_d%d'%d
+    #d = 5
+    #sample_source = data.SSSameGauss(d=d)
+    #label = 'sg_d%d'%d
 
     return (sample_source, label)
 
@@ -261,7 +262,7 @@ def main():
     fname = 'ex1-%s-me%d_J%d_rs%d_nmi%d_nma%d_a%.3f_trp%.2f.p' \
         %(prob_label, n_methods, J, reps, min(sample_sizes), max(sample_sizes), alpha, 
                 tr_proportion)
-    glo.ex_save_result(ex, results, prob_label, fname)
+    glo.ex_save_result(ex, results, fname)
 
 
 if __name__ == '__main__':

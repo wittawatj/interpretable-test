@@ -622,11 +622,15 @@ def optimize_gaussian_width(tst_data, T, func_z, max_iter=400,
     s = nlinalg.matrix_inverse(Sig).dot(W).dot(W)*nx
     gra_gamma_sq = tensor.grad(s, gamma_sq_th)
     step_pow = 0.5
+    max_gam_sq_step = 1.0
     func = theano.function(inputs=[Xth, Yth], outputs=s, 
            updates=[
               (it, it+1), 
-              (gamma_sq_th, gamma_sq_th+gwidth_step_size*gra_gamma_sq\
-                      /it**step_pow/tensor.sum(gra_gamma_sq**2)**0.5 ) 
+              #(gamma_sq_th, gamma_sq_th+gwidth_step_size*gra_gamma_sq\
+              #        /it**step_pow/tensor.sum(gra_gamma_sq**2)**0.5 ) 
+              (gamma_sq_th, gamma_sq_th+gwidth_step_size*tensor.sgn(gra_gamma_sq) \
+                      *tensor.minimum(tensor.abs_(gra_gamma_sq), max_gam_sq_step) \
+                      /it**step_pow) 
               ] 
            )
     # //////// run gradient ascent //////////////
@@ -701,12 +705,16 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400,
     s = nlinalg.matrix_inverse(Sig).dot(W).dot(W)*nx
     gra_T, gra_gamma_sq = tensor.grad(s, [T, gamma_sq_th])
     step_pow = 0.5
+    max_gam_sq_step = 1.0
     func = theano.function(inputs=[Xth, Yth], outputs=s, 
            updates=[
               (T, T+T_step_size*gra_T/it**step_pow/tensor.sum(gra_T**2)**0.5 ), 
               (it, it+1), 
-              (gamma_sq_th, gamma_sq_th+gwidth_step_size*gra_gamma_sq\
-                      /it**step_pow/tensor.sum(gra_gamma_sq**2)**0.5 ) 
+              #(gamma_sq_th, gamma_sq_th+gwidth_step_size*gra_gamma_sq\
+              #        /it**step_pow/tensor.sum(gra_gamma_sq**2)**0.5 ) 
+              (gamma_sq_th, gamma_sq_th+gwidth_step_size*tensor.sgn(gra_gamma_sq) \
+                      *tensor.minimum(tensor.abs_(gra_gamma_sq), max_gam_sq_step) \
+                      /it**step_pow) 
               ] 
            )
            #updates=[(T, T+T_step_size*gra_T), (it, it+1), 
