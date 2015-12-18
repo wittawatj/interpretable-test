@@ -30,6 +30,12 @@ def ex_result_folder(ex):
         os.mkdir(fpath)
     return fpath
 
+def create_dirs(full_path):
+    """Recursively create the directories along the specified path. 
+    Assume that the path refers to a folder. """
+    if not os.path.exists(full_path):
+        os.makedirs(full_path)
+
 def ex_result_file(ex, *relative_path ):
     """Return the full path to the file identified by the relative path as a list 
     of folders/files under the result folder of the experiment ex. """
@@ -43,6 +49,9 @@ def ex_save_result(ex, result, *relative_path):
     EX: ex_save_result(1, result, 'result.p'). Save under result/ex1/result.p 
     """
     fpath = ex_result_file(ex, *relative_path)
+    dir_path = os.path.dirname(fpath)
+    create_dirs(dir_path)
+    # 
     with open(fpath, 'w') as f:
         # expect result to be a dictionary
         pickle.dump(result, f)

@@ -154,7 +154,7 @@ ex = 1
 #sample_sizes = [i*2000 for i in range(1, 14+1)]
 #sample_sizes = [i*4000 for i in range(1, 5+1)]
 
-# gmd_d20, gmd_d10
+# gmd_d20, gmd_d10, gvd_*
 sample_sizes = [i*4000 for i in range(1, 5+1)]
 
 # sg_d5 
@@ -165,7 +165,7 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 50
+reps = 200
 method_job_funcs = [ job_met_opt, job_met_gwopt, 
          job_scf_opt, job_scf_gwopt, job_hotelling]
 
@@ -180,9 +180,13 @@ def get_sample_source():
     #sample_source = data.SSBlobs()
     #label = 'SSBlobs'
 
+    #d = 10
+    #sample_source = data.SSGaussMeanDiff(d=d, my=1.0)
+    #label = 'gmd_d%d'%d
+
     d = 10
-    sample_source = data.SSGaussMeanDiff(d=d, my=1.0)
-    label = 'gmd_d%d'%d
+    sample_source = data.SSGaussVarDiff(d=d)
+    label = 'gvd_d%d'%d
 
     # The null is true
     #d = 5
