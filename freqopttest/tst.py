@@ -387,7 +387,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         if util.is_real_num(width) and float(width) > 0:
             self._gaussian_width = float(width)
         else:
-            raise ValueError('gaussian_width must be a float > 0.')
+            raise ValueError('gaussian_width must be a float > 0. Was %s'%(str(width)))
 
     def perform_test(self, tst_data):
         stat = self.compute_stat(tst_data)
@@ -607,7 +607,7 @@ def optimize_gaussian_width(tst_data, T, func_z, max_iter=400,
     it = theano.shared(1, name='iter')
     # square root of the Gaussian width. Use square root to handle the 
     # positivity constraint by squaring it later.
-    gamma_sq_init = tst_data.mean_std()**0.5
+    gamma_sq_init = 1e-4 + tst_data.mean_std()**0.5
     gamma_sq_th = theano.shared(gamma_sq_init, name='gamma')
 
     #sqr(x) = x^2
@@ -690,7 +690,7 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400,
     it = theano.shared(1, name='iter')
     # square root of the Gaussian width. Use square root to handle the 
     # positivity constraint by squaring it later.
-    gamma_sq_init = tst_data.mean_std()**0.5
+    gamma_sq_init = 1e-4 + tst_data.mean_std()**0.5
     gamma_sq_th = theano.shared(gamma_sq_init, name='gamma')
 
     #sqr(x) = x^2
@@ -730,7 +730,15 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400,
         # stochastic gradient ascent
         ind = np.random.choice(nx, min(int(batch_proportion*nx), nx), replace=False)
         # record objective values 
-        S[t] = func(X[ind, :], Y[ind, :])
+        try:
+            S[t] = func(X[ind, :], Y[ind, :])
+        except: 
+            print 'Exception occurred during gradient descent. Stop optimization.'
+            import traceback as tb 
+            tb.print_exc()
+            t = t -1
+            break
+
         Ts[t] = T.get_value()
         gams[t] = gamma_sq_th.get_value()**2
 
@@ -738,9 +746,9 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400,
         if t >= 2 and abs(S[t]-S[t-1]) <= tol_fun:
             break
 
-    S = S[:t]
-    Ts = Ts[:t]
-    gams = gams[:t]
+    S = S[:t+1]
+    Ts = Ts[:t+1]
+    gams = gams[:t+1]
 
     # optimization info 
     info = {'Ts': Ts, 'T0':T0, 'gwidths': gams, 'obj_values': S}

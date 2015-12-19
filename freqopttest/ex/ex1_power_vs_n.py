@@ -34,7 +34,7 @@ def job_met_opt(tr, te, r, ni, n):
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
     met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
-            'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r,
+            'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r+92856,
             'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
@@ -47,7 +47,7 @@ def job_met_gwopt(tr, te, r, ni, n):
     op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
                  'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
-    T_randn = tst.MeanEmbeddingTest.init_locs_randn(tr, J, seed=r)
+    T_randn = tst.MeanEmbeddingTest.init_locs_randn(tr, J, seed=r+92856)
     gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
     met_gwopt = tst.MeanEmbeddingTest(T_randn, gwidth, alpha)
     return met_gwopt.perform_test(te)
@@ -60,8 +60,8 @@ def job_scf_randn(tr, te, r, ni, n):
 
 def job_scf_opt(tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 0.1, 
-            'gwidth_step_size': 0.1, 'seed': r, 'tol_fun': 1e-3}
+    op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -70,11 +70,11 @@ def job_scf_opt(tr, te, r, ni, n):
 def job_scf_gwopt(tr, te, r, ni, n):
     """SmoothCFTest. Optimize only the Gaussian width. 
     Fix the test frequencies"""
-    op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
+    op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
                  'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
     rand_state = np.random.get_state()
-    np.random.seed(seed=r)
+    np.random.seed(seed=r+92856)
     ss, _ = get_sample_source()
     T_randn = np.random.randn(J, ss.dim())
     np.random.set_state(rand_state)
@@ -95,7 +95,7 @@ class Ex1Job(IndependentJob):
     def __init__(self, aggregator, sample_source, prob_label, rep, ni, n, job_func):
         d = sample_source.dim()
         ntr = int(n*tr_proportion)
-        walltime = 60*59*24 if d*ntr/10 >= 8000 else 60*59
+        walltime = 60*59*24 if d*ntr/15 >= 8000 else 60*59
         memory = int(ntr*5e-3) + 50
 
         IndependentJob.__init__(self, aggregator, walltime=walltime,
@@ -110,13 +110,13 @@ class Ex1Job(IndependentJob):
     # we need to define the abstract compute method. It has to return an instance
     # of JobResult base class
     def compute(self):
-        logger.info("computing")
         
         sample_source = self.sample_source 
         r = self.rep
         ni = self.ni 
         n = self.n
         job_func = self.job_func
+        logger.info("computing. %s. r=%d, n=%d"%(job_func.__name__, r, n))
 
         tst_data = sample_source.sample(n, seed=r)
         tr, te = tst_data.split_tr_te(tr_proportion=tr_proportion, seed=r+20 )
@@ -152,10 +152,11 @@ from freqopttest.ex.ex1_power_vs_n import Ex1Job
 ex = 1
 # SSBlobs
 #sample_sizes = [i*2000 for i in range(1, 14+1)]
-#sample_sizes = [i*4000 for i in range(1, 5+1)]
+sample_sizes = [i*4000 for i in range(1, 5+1)]
 
 # gmd_d20, gmd_d10, gvd_*
-sample_sizes = [i*4000 for i in range(1, 5+1)]
+#sample_sizes = [i*4000 for i in range(1, 5+1)]
+#sample_sizes = [i*4000 for i in range(1, 6+1)]
 
 # sg_d5 
 #sample_sizes = [i*4000 for i in range(1, 5+1)]
@@ -177,16 +178,16 @@ is_rerun = False
 def get_sample_source():
     """Return a SampleSource representing the problem, and a label for file 
     naming in a 2-tuple"""
-    #sample_source = data.SSBlobs()
-    #label = 'SSBlobs'
+    sample_source = data.SSBlobs()
+    label = 'SSBlobs'
 
-    #d = 10
+    #d = 20
     #sample_source = data.SSGaussMeanDiff(d=d, my=1.0)
     #label = 'gmd_d%d'%d
 
-    d = 10
-    sample_source = data.SSGaussVarDiff(d=d)
-    label = 'gvd_d%d'%d
+    #d = 10
+    #sample_source = data.SSGaussVarDiff(d=d)
+    #label = 'gvd_d%d'%d
 
     # The null is true
     #d = 5
