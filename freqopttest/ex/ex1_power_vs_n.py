@@ -19,9 +19,10 @@ from independent_jobs.tools.Log import logger
 import math
 import numpy as np
 import os
+import sys 
 
 
-def job_met_heu(tr, te, r, ni, n):
+def job_met_heu(prob_label, tr, te, r, ni, n):
     """MeanEmbeddingTest with test_locs randomized. 
     tr unused."""
     # MeanEmbeddingTest random locations
@@ -29,7 +30,7 @@ def job_met_heu(tr, te, r, ni, n):
     met_heu_test = met_heu.perform_test(te)
     return met_heu_test
 
-def job_met_opt(tr, te, r, ni, n):
+def job_met_opt(prob_label, tr, te, r, ni, n):
     """MeanEmbeddingTest with test locations optimzied.
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
@@ -41,24 +42,24 @@ def job_met_opt(tr, te, r, ni, n):
     met_opt_test  = met_opt.perform_test(te)
     return met_opt_test
 
-def job_met_gwopt(tr, te, r, ni, n):
+def job_met_gwopt(prob_label, tr, te, r, ni, n):
     """MeanEmbeddingTest. Optimize only the Gaussian width. 
     Fix the test locations."""
     op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
                  'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
-    T_randn = tst.MeanEmbeddingTest.init_locs_randn(tr, J, seed=r+92856)
+    T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
     gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
     met_gwopt = tst.MeanEmbeddingTest(T_randn, gwidth, alpha)
     return met_gwopt.perform_test(te)
 
-def job_scf_randn(tr, te, r, ni, n):
+def job_scf_randn(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies drawn from randn(). tr unused."""
     scf_randn = tst.SmoothCFTest.create_randn(te, J, alpha, seed=19)
     scf_randn_test = scf_randn.perform_test(te)
     return scf_randn_test
 
-def job_scf_opt(tr, te, r, ni, n):
+def job_scf_opt(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
     op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
             'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
@@ -67,7 +68,7 @@ def job_scf_opt(tr, te, r, ni, n):
     scf_opt_test = scf_opt.perform_test(te)
     return scf_opt_test
 
-def job_scf_gwopt(tr, te, r, ni, n):
+def job_scf_gwopt(prob_label, tr, te, r, ni, n):
     """SmoothCFTest. Optimize only the Gaussian width. 
     Fix the test frequencies"""
     op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
@@ -75,7 +76,7 @@ def job_scf_gwopt(tr, te, r, ni, n):
     # optimize on the training set
     rand_state = np.random.get_state()
     np.random.seed(seed=r+92856)
-    ss, _ = get_sample_source()
+    ss, _, _= get_sample_source(prob_label)
     T_randn = np.random.randn(J, ss.dim())
     np.random.set_state(rand_state)
 
@@ -83,7 +84,7 @@ def job_scf_gwopt(tr, te, r, ni, n):
     scf_gwopt = tst.SmoothCFTest(T_randn, gwidth, alpha)
     return scf_gwopt.perform_test(te)
 
-def job_hotelling(tr, te, r, ni, n):
+def job_hotelling(prob_label, tr, te, r, ni, n):
     """Hotelling T-squared test"""
     htest = tst.HotellingT2Test(alpha=alpha)
     return htest.perform_test(te)
@@ -120,7 +121,8 @@ class Ex1Job(IndependentJob):
 
         tst_data = sample_source.sample(n, seed=r)
         tr, te = tst_data.split_tr_te(tr_proportion=tr_proportion, seed=r+20 )
-        test_result = job_func(tr, te, r, ni, n)
+        prob_label = self.prob_label
+        test_result = job_func(prob_label, tr, te, r, ni, n)
 
         # create ScalarResult instance
         result = SingleResult(test_result)
@@ -129,7 +131,6 @@ class Ex1Job(IndependentJob):
         logger.info("done. ex1: %s, r=%d, n=%d,  "%(job_func.__name__, r, n))
 
         # save result
-        prob_label = self.prob_label
         func_name = job_func.__name__
         fname = '%s-%s-J%d_r%d_n%d_a%.3f_trp%.2f.p' \
                 %(prob_label, func_name, J, r, n, alpha, tr_proportion)
@@ -151,12 +152,9 @@ from freqopttest.ex.ex1_power_vs_n import Ex1Job
 #--- experimental setting -----
 ex = 1
 # SSBlobs
-#sample_sizes = [i*2000 for i in range(1, 14+1)]
-sample_sizes = [i*4000 for i in range(1, 5+1)]
 
 # gmd_d20, gmd_d10, gvd_*
 #sample_sizes = [i*4000 for i in range(1, 5+1)]
-#sample_sizes = [i*4000 for i in range(1, 6+1)]
 
 # sg_d5 
 #sample_sizes = [i*4000 for i in range(1, 5+1)]
@@ -166,7 +164,7 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 200
+reps = 100
 method_job_funcs = [ job_met_opt, job_met_gwopt, 
          job_scf_opt, job_scf_gwopt, job_hotelling]
 
@@ -175,29 +173,32 @@ method_job_funcs = [ job_met_opt, job_met_gwopt,
 is_rerun = False
 #---------------------------
 
-def get_sample_source():
-    """Return a SampleSource representing the problem, and a label for file 
-    naming in a 2-tuple"""
-    sample_source = data.SSBlobs()
-    label = 'SSBlobs'
+def get_sample_source(prob_label):
+    """Return a SampleSource representing the problem, and sample_sizes to try
+    in a 3-tuple"""
 
-    #d = 20
-    #sample_source = data.SSGaussMeanDiff(d=d, my=1.0)
-    #label = 'gmd_d%d'%d
-
-    #d = 10
-    #sample_source = data.SSGaussVarDiff(d=d)
-    #label = 'gvd_d%d'%d
-
-    # The null is true
-    #d = 5
-    #sample_source = data.SSSameGauss(d=d)
-    #label = 'sg_d%d'%d
-
-    return (sample_source, label)
+    # map: prob_label -> (sample_source, sample_sizes)
+    sample_sizes = [i*4000 for i in range(1, 5+1)]
+    prob2ss = {'SSBlobs': (data.SSBlobs(), sample_sizes), 
+            'gmd_d20': (data.SSGaussMeanDiff(d=20, my=1.0), sample_sizes),
+            'gvd_d20': (data.SSGaussVarDiff(d=20), sample_sizes), 
+            # The null is true
+            'sg_d5': (data.SSSameGauss(d=5), sample_sizes)
+            }
+    if prob_label not in prob2ss:
+        raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )
+    return prob2ss[prob_label]
 
 def main():
+    if len(sys.argv) != 2:
+        print('Usage: %s problem_label'%sys.argv[0])
+        sys.exit(1)
+    prob_label = sys.argv[1]
+    run_dataset(prob_label)
+
+def run_dataset(prob_label):
     """Run the experiment"""
+    sample_source, sample_sizes = get_sample_source(prob_label)
 
     # ///////  submit jobs //////////
     # create folder name string
@@ -216,7 +217,6 @@ def main():
     n_methods = len(method_job_funcs)
     # repetitions x len(sample_sizes) x #methods
     aggregators = np.empty((reps, len(sample_sizes), n_methods ), dtype=object)
-    sample_source, prob_label = get_sample_source()
     for r in range(reps):
         for ni, n in enumerate(sample_sizes):
             for mi, f in enumerate(method_job_funcs):
