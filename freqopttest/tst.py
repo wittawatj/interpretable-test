@@ -7,6 +7,7 @@ from freqopttest.data import TSTData
 import matplotlib.pyplot as plt
 import numpy as np
 import freqopttest.util as util
+import freqopttest.kernel as kernel
 
 import scipy.stats as stats
 import theano
@@ -107,40 +108,31 @@ class HotellingT2Test(TwoSampleTest):
         chi2_stat = np.linalg.solve(s, mdiff).dot(mdiff)
         return chi2_stat
 
-class GammaMMDTest(TwoSampleTest):
-    """MMD test by fitting a Gamma distribution to the test statistic (MMD^2) 
-    The code is partially based on the code of Kacper Chwialkovski.
+class GammaMMDKGaussTest(TwoSampleTest):
+    """MMD test by fitting a Gamma distribution to the test statistic (MMD^2).
+    This class is specific to Gaussian kernel.
+    The implementation follows Arthur Gretton's Matlab code at 
+    http://www.gatsby.ucl.ac.uk/~gretton/mmd/mmd.htm
+
+    - Has O(n^2) memory and runtime complexity
     """
-    def __init__(self, kernel, alpha=0.01):
+    def __init__(self, gwidth2, alpha=0.01):
         """
-        kernel: an instance of symmetric Kernel
+        gwidth2: Gaussian width squared. Kernel is exp(|x-y|^2/(2*width^2))
         """
         self.alpha = alpha 
-        self.kernel = kernel 
+        self.gwidth2 = gwidth2
 
     def perform_test(self, tst_data):
         """perform the two-sample test and return values computed in a dictionary:
         {alpha: 0.01, pvalue: 0.0002, test_stat: 2.3, h0_rejected: True, ...}
         """
-        X, Y = tst_data.xy()
-        if X.shape[0] != Y.shape[0]:
-            raise ValueError('Require sample size of X = size of Y')
 
-        K = self.kernel.eval(X, X)
-        L = self.kernel.eval(Y, Y)
-        KL = self.kernel.eval(X, Y)
-
-        n = X.shape[0]
-        # test statistic
-        test_stat = 1.0/n * np.sum(K + L - KL - KL.T)
-        meanMMD = 2.0/n * (1.0 - 1.0/n*np.sum(np.diag(KL)))
-
-        np.fill_diagonal(K, 0.0)
-        np.fill_diagonal(L, 0.0)
-        np.fill_diagonal(KL, 0.0)
-
-        varMMD = 2.0/n/(n-1) * 1.0/n/(n-1) * np.sum((K + L - KL - KL.T)**2)
+        meanMMD, varMMD, test_stat = \
+            GammaMMDKGaussTest.compute_mean_variance_stat(tst_data, self.gwidth2)
         # parameters of the fitted Gamma distribution
+        X, _ = tst_data.xy()
+        n = X.shape[0]
         al = meanMMD**2 / varMMD
         bet = varMMD*n / meanMMD
         pval = stats.gamma.sf(test_stat, al, scale=bet)
@@ -157,6 +149,68 @@ class GammaMMDTest(TwoSampleTest):
         """Perform the test and plot the results. This is suitable for use 
         with IPython."""
         raise NotImplementedError()
+
+    @staticmethod
+    def compute_mean_variance_stat(tst_data, gwidth2):
+        """Compute the mean and variance of the MMD^2, and the test statistic
+        :return: (mean, variance)
+        """
+
+        X, Y = tst_data.xy()
+        if X.shape[0] != Y.shape[0]:
+            raise ValueError('Require sample size of X = size of Y')
+
+        ker = kernel.KGauss(gwidth2)
+        K = ker.eval(X, X)
+        L = ker.eval(Y, Y)
+        KL = ker.eval(X, Y)
+
+        n = X.shape[0]
+        # computing meanMMD is only correct for Gaussian kernels.
+        meanMMD = 2.0/n * (1.0 - 1.0/n*np.sum(np.diag(KL)))
+
+        np.fill_diagonal(K, 0.0)
+        np.fill_diagonal(L, 0.0)
+        np.fill_diagonal(KL, 0.0)
+
+        varMMD = 2.0/n/(n-1) * 1.0/n/(n-1) * np.sum((K + L - KL - KL.T)**2)
+        # test statistic
+        test_stat = 1.0/n * np.sum(K + L - KL - KL.T)
+        return meanMMD, varMMD, test_stat
+
+    @staticmethod
+    def grid_search_gwidth2(tst_data, list_gwidth2, alpha):
+        """
+        Return the Gaussian width squared in the list that maximizes the test power. 
+        The test power p(test_stat > alpha) is computed based on the distribution
+        of the MMD^2 under H_1, which is a Gaussian.
+
+        - list_gwidth2: a list of squared Gaussian width candidates
+
+        :return: best width^2, list of test powers
+        """
+        raise NotImplementedError('Not implemented yet')
+        pass
+        #X, Y = tst_data.xy()
+        #gwidth2_powers = np.zeros(len(list_gwidth2))
+        #n = X.shape[0]
+        #for i, gwidth2_i in enumerate(list_gwidth2):
+        #    meanMMD, varMMD, test_stat = \
+        #        GammaMMDKGaussTest.compute_mean_variance_stat(tst_data, gwidth2_i)
+        #    # x_alpha = location corresponding to alpha under H0
+        #    al = meanMMD**2 / varMMD
+        #    bet = varMMD*n / meanMMD
+        #    x_alpha = stats.gamma.ppf(1.0-alpha, al, scale=bet)
+
+        #    # Distribution of MMD under H1 is a Gaussian 
+        #    power = stats.norm.sf(x_alpha, loc=meanMMD, scale=(varMMD/n)**0.5)
+        #    gwidth2_powers[i] = power
+        #    print 'al: %.3g, bet: %.3g, gw2: %.2g, m_mmd: %.3g, v_mmd: %.3g'%(al, bet,
+        #            gwidth2_i, meanMMD, varMMD)
+        #    print 'x_alpha: %.3g'%x_alpha
+        #    print ''
+        #best_i = np.argmax(gwidth2_powers)
+        #return list_gwidth2[best_i], gwidth2_powers
 
 
 class SmoothCFTest(TwoSampleTest):
@@ -461,20 +515,15 @@ class MeanEmbeddingTest(TwoSampleTest):
 
     @staticmethod
     def create_fit_gauss_heuristic(tst_data, n_test_locs, alpha=0.01, seed=1):
-        """Construct a MeanEmbeddingTest where test_locs are drawn from a Gaussian
+        """Construct a MeanEmbeddingTest where test_locs are drawn from  Gaussians
         fitted to the data x, y.          
         """
-        rand_state = np.random.get_state()
-        np.random.seed(seed)
-        # fit a Gaussian in the middle of X, Y and draw sample to initialize T
+        #if cov_xy.ndim == 0:
+        #    # 1d dataset. 
+        #    cov_xy = np.array([[cov_xy]])
         X, Y = tst_data.xy()
-        xy = np.vstack((X, Y))
-        mean_xy = np.mean(xy, 0)
-        cov_xy = np.cov(xy.T)
-        if cov_xy.ndim == 0:
-            # 1d dataset. 
-            cov_xy = np.array([[cov_xy]])
-        T = np.random.multivariate_normal(mean_xy, cov_xy, n_test_locs)
+        T = MeanEmbeddingTest.init_locs_2randn(tst_data, n_test_locs, seed)
+
         # Gaussian (asymmetric) kernel width is set to the average standard
         # deviations of x, y
         stdx = np.mean(np.std(X, 0))
@@ -482,7 +531,6 @@ class MeanEmbeddingTest(TwoSampleTest):
         gamma = (stdx + stdy)/2.0
         
         met = MeanEmbeddingTest(test_locs=T, gaussian_width=gamma, alpha=alpha)
-        np.random.set_state(rand_state)
         return met
 
     @staticmethod
@@ -510,7 +558,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         :return a theano function T |-> Lambda(T)
         """
 
-        T0 = MeanEmbeddingTest.init_locs_randn(tst_data, n_test_locs, seed=seed)
+        T0 = MeanEmbeddingTest.init_locs_2randn(tst_data, n_test_locs, seed=seed)
         func_z = MeanEmbeddingTest.construct_z_theano
         # info = optimization info 
         T, gamma, info = optimize_T_gaussian_width(tst_data, T0, func_z, 
@@ -537,6 +585,35 @@ class MeanEmbeddingTest(TwoSampleTest):
         cov_xy = np.cov(xy.T)
         T0 = np.random.multivariate_normal(mean_xy, cov_xy, n_test_locs)
         # reset the seed back to the original
+        np.random.set_state(rand_state)
+        return T0
+
+    @staticmethod 
+    def init_locs_2randn(tst_data, n_test_locs, seed=1):
+        """Fit a Gaussian to each dataset and draw half of n_test_locs from 
+        each """
+        if n_test_locs == 1:
+            return MeanEmbeddingTest.init_locs_randn(tst_data, n_test_locs, seed)
+
+        # set the seed 
+        rand_state = np.random.get_state()
+        np.random.seed(seed)
+
+        X, Y = tst_data.xy()
+        # fit a Gaussian to each of X, Y
+        mean_x = np.mean(X, 0)
+        mean_y = np.mean(Y, 0)
+        cov_x = np.cov(X.T)
+        cov_y = np.cov(Y.T)
+        # integer division
+        Jx = n_test_locs/2
+        Jy = n_test_locs - Jx
+        assert Jx+Jy==n_test_locs, 'total test locations is not n_test_locs'
+        Tx = np.random.multivariate_normal(mean_x, cov_x, Jx)
+        Ty = np.random.multivariate_normal(mean_y, cov_y, Jy)
+        T0 = np.vstack((Tx, Ty))
+
+        # reset the seed back 
         np.random.set_state(rand_state)
         return T0
 
@@ -681,6 +758,8 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400,
     Return (test_locs, gaussian_width, info)
     """
 
+    print 'T0: '
+    print(T0)
     X, Y = tst_data.xy()
     nx, d = X.shape
     # initialize Theano variables
