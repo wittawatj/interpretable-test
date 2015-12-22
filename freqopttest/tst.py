@@ -604,13 +604,20 @@ class MeanEmbeddingTest(TwoSampleTest):
         mean_x = np.mean(X, 0)
         mean_y = np.mean(Y, 0)
         cov_x = np.cov(X.T)
+        [Dx, Vx] = np.linalg.eig(cov_x)
+        # shrink the covariance so that the drawn samples will not be so 
+        # far away from the data
+        eig_pow = 0.8
+        reduced_cov_x = Vx.dot(np.diag(Dx**eig_pow)).dot(Vx.T)
         cov_y = np.cov(Y.T)
+        [Dy, Vy] = np.linalg.eig(cov_y)
+        reduced_cov_y = Vy.dot(np.diag(Dy**eig_pow).dot(Vy.T))
         # integer division
         Jx = n_test_locs/2
         Jy = n_test_locs - Jx
         assert Jx+Jy==n_test_locs, 'total test locations is not n_test_locs'
-        Tx = np.random.multivariate_normal(mean_x, cov_x, Jx)
-        Ty = np.random.multivariate_normal(mean_y, cov_y, Jy)
+        Tx = np.random.multivariate_normal(mean_x, reduced_cov_x, Jx)
+        Ty = np.random.multivariate_normal(mean_y, reduced_cov_y, Jy)
         T0 = np.vstack((Tx, Ty))
 
         # reset the seed back 

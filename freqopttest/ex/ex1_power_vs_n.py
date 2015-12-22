@@ -76,7 +76,7 @@ def job_scf_gwopt(prob_label, tr, te, r, ni, n):
     # optimize on the training set
     rand_state = np.random.get_state()
     np.random.seed(seed=r+92856)
-    ss, _, _= get_sample_source(prob_label)
+    ss, _ = get_sample_source(prob_label)
     T_randn = np.random.randn(J, ss.dim())
     np.random.set_state(rand_state)
 
@@ -164,7 +164,7 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 100
+reps = 500
 method_job_funcs = [ job_met_opt, job_met_gwopt, 
          job_scf_opt, job_scf_gwopt, job_hotelling]
 
@@ -181,7 +181,7 @@ def get_sample_source(prob_label):
     sample_sizes = [i*4000 for i in range(1, 5+1)]
     prob2ss = {'SSBlobs': (data.SSBlobs(), sample_sizes), 
             'gmd_d20': (data.SSGaussMeanDiff(d=20, my=1.0), sample_sizes),
-            'gvd_d20': (data.SSGaussVarDiff(d=20), sample_sizes), 
+            'gvd_d10': (data.SSGaussVarDiff(d=20), sample_sizes), 
             # The null is true
             'sg_d5': (data.SSSameGauss(d=5), sample_sizes)
             }
