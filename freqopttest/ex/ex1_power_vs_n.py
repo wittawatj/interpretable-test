@@ -151,20 +151,13 @@ from freqopttest.ex.ex1_power_vs_n import Ex1Job
 
 #--- experimental setting -----
 ex = 1
-# SSBlobs
-
-# gmd_d20, gmd_d10, gvd_*
-#sample_sizes = [i*4000 for i in range(1, 5+1)]
-
-# sg_d5 
-#sample_sizes = [i*4000 for i in range(1, 5+1)]
 
 # number of test locations / test frequencies J
 J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 500
+reps = 1000
 method_job_funcs = [ job_met_opt, job_met_gwopt, 
          job_scf_opt, job_scf_gwopt, job_hotelling]
 
