@@ -108,6 +108,100 @@ class HotellingT2Test(TwoSampleTest):
         chi2_stat = np.linalg.solve(s, mdiff).dot(mdiff)
         return chi2_stat
 
+class LinearMMDTest(TwoSampleTest):
+    """Two-sample test with linear MMD^2 statistic. """
+    
+    def __init__(self, kernel, alpha=0.01):
+        """
+        kernel: an instance of Kernel 
+        """
+        self.kernel = kernel
+        self.alpha = alpha 
+
+    def perform_test(self, tst_data):
+        """perform the two-sample test and return values computed in a dictionary:
+        {alpha: 0.01, pvalue: 0.0002, test_stat: 2.3, h0_rejected: True, ...}
+        tst_data: an instance of TSTData
+        """
+        X, Y = tst_data.xy()
+        n = X.shape[0]
+        stat = self.compute_stat(tst_data)
+        var = LinearMMDTest.variance_linear_mmd(X, Y, self.kernel, 0)
+        pval = stats.norm.sf(stat, loc=0, scale=(var/n)**0.5)
+        results = {'alpha': self.alpha, 'pvalue': pval, 'test_stat': stat,
+                'h0_rejected': pval < self.alpha}
+        return results
+
+    def compute_stat(self, tst_data):
+        """Compute unbiased linear mmd estimator."""
+        X, Y = tst_data.xy()
+        return LinearMMDTest.linear_mmd(X, Y, self.kernel)
+
+    @staticmethod
+    def linear_mmd(X, Y, kernel):
+        """Compute linear mmd estimator. O(n)"""
+        if X.shape[0] != Y.shape[0]:
+            raise ValueError('Require sample size of X = size of Y')
+        n = X.shape[0]
+        if n%2 == 1:
+            # make it even by removing the last row 
+            X = np.delete(X, -1, axis=0)
+            Y = np.delete(Y, -1, axis=0)
+
+        Xodd = X[::2, :]
+        Xeven = X[1::2, :]
+        assert Xodd.shape[0] == Xeven.shape[0]
+        Yodd = Y[::2, :]
+        Yeven = Y[1::2, :]
+        assert Yodd.shape[0] == Yeven.shape[0]
+        # linear mmd. O(n) 
+        xx = kernel.pair_eval(Xodd, Xeven)
+        yy = kernel.pair_eval(Yodd, Yeven)
+        xo_ye = kernel.pair_eval(Xodd, Yeven)
+        xe_yo = kernel.pair_eval(Xeven, Yodd)
+        lin_mmd = np.mean(xx + yy - xo_ye - xe_yo)
+        return lin_mmd
+
+    @staticmethod
+    def variance_linear_mmd(X, Y, kernel, lin_mmd=None):
+        """Compute an estimate of the variance of the linear MMD.
+        Require O(n^2)
+        """
+        if X.shape[0] != Y.shape[0]:
+            raise ValueError('Require sample size of X = size of Y')
+        n = X.shape[0]
+        if lin_mmd is None:
+            lin_mmd = LinearMMDTest.linear_mmd(X, Y, kernel)
+        # compute uncentred 2nd moment of h(z, z')
+        K = kernel.eval(X, X)
+        L = kernel.eval(Y, Y)
+        KL = kernel.eval(X, Y)
+        snd_moment = np.sum( (K+L-KL-KL.T)**2 )/(n*(n-1))
+        var_mmd = 2.0*(snd_moment - lin_mmd**2)
+        return var_mmd
+
+    @staticmethod
+    def grid_search_kernel(tst_data, list_kernels, alpha):
+        """
+        Return from the list the best kernel that maximizes the test power.
+        The test power of the linear mmd is given by the CDF of a Gaussian. 
+
+        return: (best kernel index, list of test powers)
+        """
+        X, Y = tst_data.xy()
+        n = X.shape[0]
+        powers = np.zeros(len(list_kernels))
+        for ki, kernel in enumerate(list_kernels):
+            lin_mmd = LinearMMDTest.linear_mmd(X, Y, kernel)
+            snd_moment = LinearMMDTest.variance_linear_mmd(X, Y, kernel, 0)
+            var_lin_mmd = snd_moment - 2.0*lin_mmd**2
+            # test threshold from N(0, var)
+            thresh = stats.norm.isf(alpha, loc=0, scale=(snd_moment/n)**0.5)
+            power = stats.norm.sf(thresh, loc=lin_mmd, scale=(var_lin_mmd/n)**0.5)
+            powers[ki] = power
+        best_ind = np.argmax(powers)
+        return best_ind, powers
+
 class GammaMMDKGaussTest(TwoSampleTest):
     """MMD test by fitting a Gamma distribution to the test statistic (MMD^2).
     This class is specific to Gaussian kernel.

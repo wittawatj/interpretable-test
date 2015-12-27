@@ -5,6 +5,9 @@ __author__ = 'wittawat'
 import freqopttest.data as data
 import freqopttest.tst as tst
 import freqopttest.glo as glo
+import freqopttest.util as util 
+import freqopttest.kernel as kernel 
+
 # need independent_jobs package 
 # https://github.com/karlnapf/independent-jobs
 # The independent_jobs and freqopttest have to be in the globl search path (.bashrc)
@@ -84,6 +87,21 @@ def job_scf_gwopt(prob_label, tr, te, r, ni, n):
     scf_gwopt = tst.SmoothCFTest(T_randn, gwidth, alpha)
     return scf_gwopt.perform_test(te)
 
+def job_lin_mmd(prob_label, tr, te, r, ni, n):
+    """Linear mmd with grid search to choose the best Gaussian width."""
+    # should be completely deterministic
+
+    # grid search to choose the best Gaussian width
+    med = util.meddistance(tr.stack_xy())
+    widths = [ (med*f) for f in 2.0**np.arange(-5, 5, 1)]
+    list_kernels = [kernel.KGauss( w**2 ) for w in widths]
+    besti, powers = tst.LinearMMDTest.grid_search_kernel(tr, list_kernels, alpha)
+    # perform test 
+    best_ker = list_kernels[besti]
+    lin_mmd_test = tst.LinearMMDTest(best_ker, alpha)
+    test_result = lin_mmd_test.perform_test(te)
+    return test_result
+
 def job_hotelling(prob_label, tr, te, r, ni, n):
     """Hotelling T-squared test"""
     htest = tst.HotellingT2Test(alpha=alpha)
@@ -145,6 +163,7 @@ from freqopttest.ex.ex1_power_vs_n import job_met_gwopt
 from freqopttest.ex.ex1_power_vs_n import job_scf_randn
 from freqopttest.ex.ex1_power_vs_n import job_scf_opt
 from freqopttest.ex.ex1_power_vs_n import job_scf_gwopt
+from freqopttest.ex.ex1_power_vs_n import job_lin_mmd
 from freqopttest.ex.ex1_power_vs_n import job_hotelling
 from freqopttest.ex.ex1_power_vs_n import Ex1Job
 
@@ -159,7 +178,7 @@ tr_proportion = 0.5
 # repetitions for each sample size 
 reps = 1000
 method_job_funcs = [ job_met_opt, job_met_gwopt, 
-         job_scf_opt, job_scf_gwopt, job_hotelling]
+         job_scf_opt, job_scf_gwopt, job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (ni, r) already exists.
