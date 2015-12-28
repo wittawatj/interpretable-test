@@ -91,10 +91,15 @@ def job_lin_mmd(prob_label, tr, te, r, ni, n):
     """Linear mmd with grid search to choose the best Gaussian width."""
     # should be completely deterministic
 
-    # grid search to choose the best Gaussian width
-    med = util.meddistance(tr.stack_xy())
+    # If n is too large, pairwise meddian computation can cause a memory error. 
+    X, Y = tr.xy()
+    Xr = X[:min(X.shape[0], 3000), :]
+    Yr = Y[:min(Y.shape[0], 3000), :]
+    
+    med = util.meddistance(np.vstack((Xr, Yr)) )
     widths = [ (med*f) for f in 2.0**np.arange(-5, 5, 1)]
     list_kernels = [kernel.KGauss( w**2 ) for w in widths]
+    # grid search to choose the best Gaussian width
     besti, powers = tst.LinearMMDTest.grid_search_kernel(tr, list_kernels, alpha)
     # perform test 
     best_ker = list_kernels[besti]
@@ -176,7 +181,7 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 1000
+reps = 500
 method_job_funcs = [ job_met_opt, job_met_gwopt, 
          job_scf_opt, job_scf_gwopt, job_lin_mmd, job_hotelling]
 

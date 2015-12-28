@@ -125,8 +125,8 @@ class LinearMMDTest(TwoSampleTest):
         """
         X, Y = tst_data.xy()
         n = X.shape[0]
-        stat = self.compute_stat(tst_data)
-        var = LinearMMDTest.variance_linear_mmd(X, Y, self.kernel, 0)
+        stat, snd = LinearMMDTest.two_moments(X, Y, self.kernel)
+        var = 2.0*snd
         pval = stats.norm.sf(stat, loc=0, scale=(var/n)**0.5)
         results = {'alpha': self.alpha, 'pvalue': pval, 'test_stat': stat,
                 'h0_rejected': pval < self.alpha}
@@ -140,6 +140,16 @@ class LinearMMDTest(TwoSampleTest):
     @staticmethod
     def linear_mmd(X, Y, kernel):
         """Compute linear mmd estimator. O(n)"""
+        lin_mmd, _ = LinearMMDTest.two_moments(X, Y, kernel)
+        return lin_mmd
+
+    @staticmethod
+    def two_moments(X, Y, kernel):
+        """Compute linear mmd estimator and a linear estimate of 
+        the uncentred 2nd moment of h(z, z'). Total cost: O(n).
+
+        return: (linear mmd, linear 2nd moment)
+        """
         if X.shape[0] != Y.shape[0]:
             raise ValueError('Require sample size of X = size of Y')
         n = X.shape[0]
@@ -159,11 +169,20 @@ class LinearMMDTest(TwoSampleTest):
         yy = kernel.pair_eval(Yodd, Yeven)
         xo_ye = kernel.pair_eval(Xodd, Yeven)
         xe_yo = kernel.pair_eval(Xeven, Yodd)
-        lin_mmd = np.mean(xx + yy - xo_ye - xe_yo)
-        return lin_mmd
+        h = xx + yy - xo_ye - xe_yo
+        lin_mmd = np.mean(h)
+        """
+        Compute a linear-time estimate of the 2nd moment of h = E_z,z' h(z, z')^2.
+        Note that MMD = E_z,z' h(z, z').
+        This is derived by Wittawat. Did not see it proposed anywhere.
+        Require O(n). Same trick as used in linear MMD to get O(n).
+        """
+        lin_2nd = np.mean(h**2) 
+        return lin_mmd, lin_2nd
+
 
     @staticmethod
-    def variance_linear_mmd(X, Y, kernel, lin_mmd=None):
+    def variance(X, Y, kernel, lin_mmd=None):
         """Compute an estimate of the variance of the linear MMD.
         Require O(n^2)
         """
@@ -192,11 +211,10 @@ class LinearMMDTest(TwoSampleTest):
         n = X.shape[0]
         powers = np.zeros(len(list_kernels))
         for ki, kernel in enumerate(list_kernels):
-            lin_mmd = LinearMMDTest.linear_mmd(X, Y, kernel)
-            snd_moment = LinearMMDTest.variance_linear_mmd(X, Y, kernel, 0)
-            var_lin_mmd = snd_moment - 2.0*lin_mmd**2
+            lin_mmd, snd_moment = LinearMMDTest.two_moments(X, Y, kernel)
+            var_lin_mmd = 2.0*(snd_moment - lin_mmd**2)
             # test threshold from N(0, var)
-            thresh = stats.norm.isf(alpha, loc=0, scale=(snd_moment/n)**0.5)
+            thresh = stats.norm.isf(alpha, loc=0, scale=(2.0*snd_moment/n)**0.5)
             power = stats.norm.sf(thresh, loc=lin_mmd, scale=(var_lin_mmd/n)**0.5)
             powers[ki] = power
         best_ind = np.argmax(powers)
