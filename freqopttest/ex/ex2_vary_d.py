@@ -1,4 +1,5 @@
-"""Simulation to test the test power vs increasing sample size"""
+"""Simulation to examine the type-1 error or test power as the dimension 
+increases"""
 
 __author__ = 'wittawat'
 
@@ -19,26 +20,17 @@ from independent_jobs.engines.BatchClusterParameters import BatchClusterParamete
 from independent_jobs.engines.SerialComputationEngine import SerialComputationEngine
 from independent_jobs.engines.SlurmComputationEngine import SlurmComputationEngine
 from independent_jobs.tools.Log import logger
-from freqopttest.ex2_vary_d  import get_func2label_map
 import math
 import numpy as np
 import os
 import sys 
 
 
-def job_met_heu(prob_label, tr, te, r, ni, n):
-    """MeanEmbeddingTest with test_locs randomized. 
-    tr unused."""
-    # MeanEmbeddingTest random locations
-    met_heu = tst.MeanEmbeddingTest.create_fit_gauss_heuristic(te, J, alpha, seed=180)
-    met_heu_test = met_heu.perform_test(te)
-    return met_heu_test
-
-def job_met_opt(prob_label, tr, te, r, ni, n):
+def job_met_opt(sample_source, tr, te, r):
     """MeanEmbeddingTest with test locations optimzied.
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
+    met_opt_options = {'n_test_locs': J, 'max_iter': 300, 
             'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r+92856,
             'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
@@ -46,10 +38,10 @@ def job_met_opt(prob_label, tr, te, r, ni, n):
     met_opt_test  = met_opt.perform_test(te)
     return met_opt_test
 
-def job_met_gwopt(prob_label, tr, te, r, ni, n):
+def job_met_gwopt(sample_source, tr, te, r):
     """MeanEmbeddingTest. Optimize only the Gaussian width. 
     Fix the test locations."""
-    op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
+    op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
                  'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
     T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
@@ -57,13 +49,7 @@ def job_met_gwopt(prob_label, tr, te, r, ni, n):
     met_gwopt = tst.MeanEmbeddingTest(T_randn, gwidth, alpha)
     return met_gwopt.perform_test(te)
 
-def job_scf_randn(prob_label, tr, te, r, ni, n):
-    """SmoothCFTest with frequencies drawn from randn(). tr unused."""
-    scf_randn = tst.SmoothCFTest.create_randn(te, J, alpha, seed=19)
-    scf_randn_test = scf_randn.perform_test(te)
-    return scf_randn_test
-
-def job_scf_opt(prob_label, tr, te, r, ni, n):
+def job_scf_opt(sample_source, tr, te, r):
     """SmoothCFTest with frequencies optimized."""
     op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
             'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
@@ -72,7 +58,7 @@ def job_scf_opt(prob_label, tr, te, r, ni, n):
     scf_opt_test = scf_opt.perform_test(te)
     return scf_opt_test
 
-def job_scf_gwopt(prob_label, tr, te, r, ni, n):
+def job_scf_gwopt(sample_source, tr, te, r):
     """SmoothCFTest. Optimize only the Gaussian width. 
     Fix the test frequencies"""
     op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
@@ -80,15 +66,14 @@ def job_scf_gwopt(prob_label, tr, te, r, ni, n):
     # optimize on the training set
     rand_state = np.random.get_state()
     np.random.seed(seed=r+92856)
-    ss, _ = get_sample_source(prob_label)
-    T_randn = np.random.randn(J, ss.dim())
+    T_randn = np.random.randn(J, sample_source.dim())
     np.random.set_state(rand_state)
 
     gwidth, info = tst.SmoothCFTest.optimize_gwidth(tr, T_randn, **op_gwidth)
     scf_gwopt = tst.SmoothCFTest(T_randn, gwidth, alpha)
     return scf_gwopt.perform_test(te)
 
-def job_lin_mmd(prob_label, tr, te, r, ni, n):
+def job_lin_mmd(sample_source, tr, te, r):
     """Linear mmd with grid search to choose the best Gaussian width."""
     # should be completely deterministic
 
@@ -108,28 +93,25 @@ def job_lin_mmd(prob_label, tr, te, r, ni, n):
     test_result = lin_mmd_test.perform_test(te)
     return test_result
 
-def job_hotelling(prob_label, tr, te, r, ni, n):
+def job_hotelling(sample_source, tr, te, r):
     """Hotelling T-squared test"""
     htest = tst.HotellingT2Test(alpha=alpha)
     return htest.perform_test(te)
 
 
 # Define our custom Job, which inherits from base class IndependentJob
-class Ex1Job(IndependentJob):
+class Ex2Job(IndependentJob):
    
-    def __init__(self, aggregator, sample_source, prob_label, rep, ni, n, job_func):
+    def __init__(self, aggregator, sample_source, prob_label, rep, job_func):
         d = sample_source.dim()
-        ntr = int(n*tr_proportion)
-        walltime = 60*59*24 if d*ntr/15 >= 8000 else 60*59
-        memory = int(ntr*1e-2) + 50
+        walltime = 60*59*24 
+        memory = int(tr_proportion*sample_size*1e-2) + 50
 
         IndependentJob.__init__(self, aggregator, walltime=walltime,
                                memory=memory)
         self.sample_source = sample_source
         self.prob_label = prob_label
         self.rep = rep
-        self.ni = ni
-        self.n = n
         self.job_func = job_func
 
     # we need to define the abstract compute method. It has to return an instance
@@ -138,70 +120,83 @@ class Ex1Job(IndependentJob):
         
         sample_source = self.sample_source 
         r = self.rep
-        ni = self.ni 
-        n = self.n
+        d = sample_source.dim()
         job_func = self.job_func
-        logger.info("computing. %s. r=%d, n=%d"%(job_func.__name__, r, n))
+        logger.info("computing. %s. r=%d, d=%d"%(job_func.__name__, r, d))
 
-        tst_data = sample_source.sample(n, seed=r)
+        # sample_size is a global variable
+        tst_data = sample_source.sample(sample_size, seed=r)
         tr, te = tst_data.split_tr_te(tr_proportion=tr_proportion, seed=r+20 )
         prob_label = self.prob_label
-        test_result = job_func(prob_label, tr, te, r, ni, n)
+        test_result = job_func(sample_source, tr, te, r)
 
         # create ScalarResult instance
         result = SingleResult(test_result)
         # submit the result to my own aggregator
         self.aggregator.submit_result(result)
-        logger.info("done. ex1: %s, r=%d, n=%d,  "%(job_func.__name__, r, n))
+        logger.info("done. ex2: %s, r=%d, d=%d,  "%(job_func.__name__, r, d))
 
         # save result
         func_name = job_func.__name__
-        fname = '%s-%s-J%d_r%d_n%d_a%.3f_trp%.2f.p' \
-                %(prob_label, func_name, J, r, n, alpha, tr_proportion)
+        fname = '%s-%s-J%d_r%d_d%d_a%.3f_trp%.2f.p' \
+                %(prob_label, func_name, J, r, d, alpha, tr_proportion)
         glo.ex_save_result(ex, test_result, prob_label, fname)
 
+def get_func2label_map():
+    # map: job_func_name |-> plot label
+    all_funcs = [job_met_opt, job_met_gwopt, job_scf_opt, job_scf_gwopt, 
+            job_lin_mmd, job_hotelling]
+    func_names = [f.__name__ for f in all_funcs]
+    labels = ['ME-opt', 'ME-gw-opt', 'SCF-opt', 'SCF-gw-opt', 
+            'MMD-lin', '$T^2$']
+    M = {k:v for (k,v) in zip(func_names, labels)}
+    return M
 
-# This import is needed so that pickle knows about the class Ex1Job.
+# This import is needed so that pickle knows about the class Ex2Job.
 # pickle is used when collecting the results from the submitted jobs.
-from freqopttest.ex.ex1_power_vs_n import job_met_heu
-from freqopttest.ex.ex1_power_vs_n import job_met_opt
-from freqopttest.ex.ex1_power_vs_n import job_met_gwopt
-from freqopttest.ex.ex1_power_vs_n import job_scf_randn
-from freqopttest.ex.ex1_power_vs_n import job_scf_opt
-from freqopttest.ex.ex1_power_vs_n import job_scf_gwopt
-from freqopttest.ex.ex1_power_vs_n import job_lin_mmd
-from freqopttest.ex.ex1_power_vs_n import job_hotelling
-from freqopttest.ex.ex1_power_vs_n import Ex1Job
+from freqopttest.ex.ex2_vary_d import job_met_opt
+from freqopttest.ex.ex2_vary_d import job_met_gwopt
+from freqopttest.ex.ex2_vary_d import job_scf_opt
+from freqopttest.ex.ex2_vary_d import job_scf_gwopt
+from freqopttest.ex.ex2_vary_d import job_lin_mmd
+from freqopttest.ex.ex2_vary_d import job_hotelling
+from freqopttest.ex.ex2_vary_d import Ex2Job
 
 
 #--- experimental setting -----
-ex = 1
+
+
+ex = 2
+
+# dimensions to try 
+dimensions = [5*i for i in range(1, 8+1)] 
+# sample size = n (the number training and test sizes)
+sample_size = 20000
 
 # number of test locations / test frequencies J
 J = 5
 alpha = 0.01
 tr_proportion = 0.5
-# repetitions for each sample size 
-reps = 500
+# repetitions for each dimension
+reps = 100
 method_job_funcs = [ job_met_opt, job_met_gwopt, 
          job_scf_opt, job_scf_gwopt, job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
-# setting of (ni, r) already exists.
+# setting of (di, r) already exists.
 is_rerun = False
 #---------------------------
 
-def get_sample_source(prob_label):
-    """Return a SampleSource representing the problem, and sample_sizes to try
-    in a 2-tuple"""
-
-    # map: prob_label -> (sample_source, sample_sizes)
-    sample_sizes = [i*4000 for i in range(1, 5+1)]
-    prob2ss = {'SSBlobs': (data.SSBlobs(), sample_sizes), 
-            'gmd_d20': (data.SSGaussMeanDiff(d=20, my=1.0), sample_sizes),
-            'gvd_d10': (data.SSGaussVarDiff(d=20), sample_sizes), 
+def get_sample_source_list(prob_label):
+    """Return a list of SampleSource's representing the problems, each 
+    corresponding to one dimension in the list.
+    """
+    # map: prob_label -> [sample_source]
+    prob2ss = { 
+            'gmd': [data.SSGaussMeanDiff(d=d, my=1.0) for d in dimensions],
+            'gvd': [data.SSGaussVarDiff(d=d) for d in dimensions], 
             # The null is true
-            'sg_d5': (data.SSSameGauss(d=5), sample_sizes)
+            'sg': [data.SSSameGauss(d=d) for d in dimensions]
             }
     if prob_label not in prob2ss:
         raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )
@@ -216,12 +211,12 @@ def main():
 
 def run_dataset(prob_label):
     """Run the experiment"""
-    sample_source, sample_sizes = get_sample_source(prob_label)
+    list_ss = get_sample_source_list(prob_label)
 
     # ///////  submit jobs //////////
     # create folder name string
     home = os.path.expanduser("~")
-    foldername = os.path.join(home, "freqopttest_slurm", 'e1')
+    foldername = os.path.join(home, "freqopttest_slurm", 'e%d'%ex)
     logger.info("Setting engine folder to %s" % foldername)
 
     # create parameter instance that is needed for any batch computation engine
@@ -233,28 +228,28 @@ def run_dataset(prob_label):
     #engine = SerialComputationEngine()
     engine = SlurmComputationEngine(batch_parameters)
     n_methods = len(method_job_funcs)
-    # repetitions x len(sample_sizes) x #methods
-    aggregators = np.empty((reps, len(sample_sizes), n_methods ), dtype=object)
+    # repetitions x len(dimensions) x #methods
+    aggregators = np.empty((reps, len(dimensions), n_methods ), dtype=object)
     for r in range(reps):
-        for ni, n in enumerate(sample_sizes):
+        for di, d in enumerate(dimensions):
             for mi, f in enumerate(method_job_funcs):
                 # name used to save the result
                 func_name = f.__name__
-                fname = '%s-%s-J%d_r%d_n%d_a%.3f_trp%.2f.p' \
-                    %(prob_label, func_name, J, r, n, alpha, tr_proportion)
+                fname = '%s-%s-J%d_r%d_d%d_a%.3f_trp%.2f.p' \
+                    %(prob_label, func_name, J, r, d, alpha, tr_proportion)
                 if not is_rerun and glo.ex_file_exists(ex, prob_label, fname):
                     logger.info('%s exists. Load and return.'%fname)
                     test_result = glo.ex_load_result(ex, prob_label, fname)
 
                     sra = SingleResultAggregator()
                     sra.submit_result(SingleResult(test_result))
-                    aggregators[r, ni, mi] = sra
+                    aggregators[r, di, mi] = sra
                 else:
                     # result not exists or rerun
-                    job = Ex1Job(SingleResultAggregator(), sample_source,
-                            prob_label, r, ni, n, f)
+                    job = Ex2Job(SingleResultAggregator(), list_ss[di],
+                            prob_label, r, f)
                     agg = engine.submit_job(job)
-                    aggregators[r, ni, mi] = agg
+                    aggregators[r, di, mi] = agg
 
     # let the engine finish its business
     logger.info("Wait for all call in engine")
@@ -262,31 +257,32 @@ def run_dataset(prob_label):
 
     # ////// collect the results ///////////
     logger.info("Collecting results")
-    test_results = np.empty((reps, len(sample_sizes), n_methods), dtype=object)
+    test_results = np.empty((reps, len(dimensions), n_methods), dtype=object)
     for r in range(reps):
-        for ni, n in enumerate(sample_sizes):
+        for di, d in enumerate(dimensions):
             for mi, f in enumerate(method_job_funcs):
-                logger.info("Collecting result (%s, r=%d, n=%d)" % (f.__name__, r, n))
+                logger.info("Collecting result (%s, r=%d, d=%d)" % (f.__name__, r, d))
                 # let the aggregator finalize things
-                aggregators[r, ni, mi].finalize()
+                aggregators[r, di, mi].finalize()
 
                 # aggregators[i].get_final_result() returns a SingleResult instance,
                 # which we need to extract the actual result
-                test_result = aggregators[r, ni, mi].get_final_result().result
-                test_results[r, ni, mi] = test_result
+                test_result = aggregators[r, di, mi].get_final_result().result
+                test_results[r, di, mi] = test_result
 
     func_names = [f.__name__ for f in method_job_funcs]
     func2labels = get_func2label_map()
     method_labels = [func2labels[f] for f in func_names if f in func2labels]
     # save results 
-    results = {'test_results': test_results, 'sample_sizes': sample_sizes, 
-            'alpha': alpha, 'J': J, 'sample_source': sample_source, 
+    results = {'test_results': test_results, 'dimensions': dimensions, 
+            'alpha': alpha, 'J': J, 'list_sample_source': list_ss, 
             'tr_proportion': 0.5, 'method_job_funcs': method_job_funcs, 
-            'prob_label': prob_label, 'method_labels': method_labels}
+            'prob_label': prob_label, 'sample_size': sample_size, 
+            'method_labels': method_labels}
     
     # class name 
-    fname = 'ex1-%s-me%d_J%d_rs%d_nmi%d_nma%d_a%.3f_trp%.2f.p' \
-        %(prob_label, n_methods, J, reps, min(sample_sizes), max(sample_sizes), alpha, 
+    fname = 'ex2-%s-me%d_J%d_rs%d_dmi%d_dma%d_a%.3f_trp%.2f.p' \
+        %(prob_label, n_methods, J, reps, min(dimensions), max(dimensions), alpha, 
                 tr_proportion)
     glo.ex_save_result(ex, results, fname)
     logger.info('Saved aggregated results to %s'%fname)
