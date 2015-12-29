@@ -13,7 +13,7 @@ class Str(object):
         pass
 
 
-def meddistance(X):
+def meddistance(X, subsample=None):
     """
     Compute the median of pairwise distances (not distance squared) of points
     in the matrix.  Useful as a heuristic for setting Gaussian kernel's width.
@@ -26,9 +26,19 @@ def meddistance(X):
     ------
     median distance
     """
-    s = np.sum(X**2, 1)
-    D = np.sqrt( s[:, np.newaxis] - 2.0*X.dot(X.T) + s[np.newaxis, :] )
-    return np.median(D.flatten())
+    if subsample is None:
+        s = np.sum(X**2, 1)
+        D = np.sqrt( s[:, np.newaxis] - 2.0*X.dot(X.T) + s[np.newaxis, :] )
+        return np.median(D.flatten())
+    else:
+        assert subsample > 0
+        rand_state = np.random.get_state()
+        np.random.seed(9827)
+        n = X.shape[0]
+        ind = np.random.choice(n, min(subsample, n), replace=False)
+        np.random.set_state(rand_state)
+        # recursion just one
+        return meddistance(X[ind, :], None)
 
 
 def is_real_num(x):

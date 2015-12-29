@@ -359,15 +359,9 @@ class SmoothCFTest(TwoSampleTest):
                 'h0_rejected': pvalue < alpha}
         return results
 
-    #def visual_test(self, tst_data):
-    #    """Perform the test and plot the results. This is suitable for use 
-    #    with IPython."""
-    #    raise NotImplementedError()
-
-    
     #---------------------------------
     @staticmethod
-    def compute_nc_parameter(X, Y, T, gwidth):
+    def compute_nc_parameter(X, Y, T, gwidth, reg=0.0):
         """
         Compute the non-centrality parameter of the non-central Chi-squared 
         which is the distribution of the test statistic under the H_1 (and H_0).
@@ -381,7 +375,7 @@ class SmoothCFTest(TwoSampleTest):
         Sig = np.cov(Z.T)
         W = np.mean(Z, 0)
         # test statistic
-        s = n*np.linalg.solve(Sig, W).dot(W)
+        s = n*np.linalg.solve(Sig + reg*np.eye(Sig.shape[0]), W).dot(W)
         return s
 
     @staticmethod
@@ -393,18 +387,10 @@ class SmoothCFTest(TwoSampleTest):
         distribution.
         return: (best width index, list of test powers)
         """
-        # number of test locations
+        func_nc_param = SmoothCFTest.compute_nc_parameter
         J = T.shape[0]
-        X, Y = tst_data.xy()
-        powers = np.zeros(len(list_gwidth))
-        for wi, gwidth in enumerate(list_gwidth):
-            # non-centrality parameter
-            lamb = SmoothCFTest.compute_nc_parameter(X, Y, T, gwidth)
-            thresh = stats.chi2.isf(alpha, df=J)
-            power = stats.ncx2.sf(thresh, df=J, nc=lamb)
-            powers[wi] = power
-        besti = np.argmax(powers)
-        return besti, powers
+        return generic_grid_search_gwidth(tst_data, T, 2*J, list_gwidth, alpha,
+                func_nc_param)
             
 
     @staticmethod
@@ -415,7 +401,7 @@ class SmoothCFTest(TwoSampleTest):
         rand_state = np.random.get_state()
         np.random.seed(seed)
 
-        gamma = tst_data.mean_std()
+        gamma = tst_data.mean_std()*tst_data.dim()**0.5
 
         d = tst_data.dim()
         T = np.random.randn(J, d)
@@ -607,7 +593,7 @@ class MeanEmbeddingTest(TwoSampleTest):
 
     #===============================
     @staticmethod
-    def compute_nc_parameter(X, Y, T, gwidth):
+    def compute_nc_parameter(X, Y, T, gwidth, reg=0.0):
         """
         Compute the non-centrality parameter of the non-central Chi-squared 
         which is the distribution of the test statistic under the H_1 (and H_0).
@@ -616,13 +602,15 @@ class MeanEmbeddingTest(TwoSampleTest):
         if gwidth is None or gwidth <= 0:
             raise ValueError('require gaussian_width > 0.')
         n = X.shape[0]
-        g = MeanEmbeddingTest.asym_gauss_kernel(X, T, gwidth)
-        h = MeanEmbeddingTest.asym_gauss_kernel(Y, T, gwidth)
+        #g = MeanEmbeddingTest.asym_gauss_kernel(X, T, gwidth)
+        #h = MeanEmbeddingTest.asym_gauss_kernel(Y, T, gwidth)
+        g = MeanEmbeddingTest.gauss_kernel(X, T, gwidth)
+        h = MeanEmbeddingTest.gauss_kernel(Y, T, gwidth)
         Z = g-h
         Sig = np.cov(Z.T)
         W = np.mean(Z, 0)
         # test statistic
-        s = n*np.linalg.solve(Sig, W).dot(W)
+        s = n*np.linalg.solve(Sig + reg*np.eye(Sig.shape[0]), W).dot(W)
         return s
 
 
@@ -635,23 +623,59 @@ class MeanEmbeddingTest(TwoSampleTest):
         
         Return a n x J numpy array. 
         """
-        g = MeanEmbeddingTest.asym_gauss_kernel_theano(Xth, T, gaussian_width)
-        h = MeanEmbeddingTest.asym_gauss_kernel_theano(Yth, T, gaussian_width)
+        g = MeanEmbeddingTest.gauss_kernel_theano(Xth, T, gaussian_width)
+        h = MeanEmbeddingTest.gauss_kernel_theano(Yth, T, gaussian_width)
         # Z: nx x J
         Z = g-h
         return Z
 
+
+    #@staticmethod
+    #def asym_gauss_kernel(X, test_locs, gamma):
+    #    """Compute a X.shape[0] x test_locs.shape[0] Gaussian kernel matrix where
+    #    the Gaussian width gamma will divide only the data X (not test_locs).
+    #    This is defined as in Chwialkovski, 2015 (NIPS)
+    #    """
+    #    n, d = X.shape
+    #    X = X/gamma
+    #    D2 = np.sum(X**2, 1)[:, np.newaxis] - 2*X.dot(test_locs.T) + np.sum(test_locs**2, 1)
+    #    K = np.exp(-D2)
+    #    raise ValueError('deprecated.')
+    #    return K
+
+    #@staticmethod
+    #def asym_gauss_kernel_theano(X, test_locs, gamma):
+    #    """Asymmetric kernel for the two sample test. Theano version.
+    #    :return kernel matrix X.shape[0] x test_locs.shape[0]
+    #    """
+    #    T = test_locs
+    #    n, d = X.shape
+    #    X = X/gamma
+
+    #    D2 = (X**2).sum(1).reshape((-1, 1)) - 2*X.dot(T.T) + tensor.sum(T**2, 1).reshape((1, -1))
+    #    K = tensor.exp(-D2)
+    #    raise ValueError('deprecated.')
+    #    return K
+
     @staticmethod
-    def asym_gauss_kernel_theano(X, test_locs, gamma):
-        """Asymmetric kernel for the two sample test. Theano version.
+    def gauss_kernel(X, test_locs, gwidth2):
+        """Compute a X.shape[0] x test_locs.shape[0] Gaussian kernel matrix 
+        """
+        n, d = X.shape
+        D2 = np.sum(X**2, 1)[:, np.newaxis] - 2*X.dot(test_locs.T) + np.sum(test_locs**2, 1)
+        K = np.exp(-D2/(2.0*gwidth2))
+        return K
+
+    @staticmethod
+    def gauss_kernel_theano(X, test_locs, gwidth2):
+        """Gaussian kernel for the two sample test. Theano version.
         :return kernel matrix X.shape[0] x test_locs.shape[0]
         """
         T = test_locs
         n, d = X.shape
-        X = X/gamma
 
         D2 = (X**2).sum(1).reshape((-1, 1)) - 2*X.dot(T.T) + tensor.sum(T**2, 1).reshape((1, -1))
-        K = tensor.exp(-D2)
+        K = tensor.exp(-D2/(2.0*gwidth2))
         return K
 
     @staticmethod
@@ -667,11 +691,10 @@ class MeanEmbeddingTest(TwoSampleTest):
 
         # Gaussian (asymmetric) kernel width is set to the average standard
         # deviations of x, y
-        stdx = np.mean(np.std(X, 0))
-        stdy = np.mean(np.std(Y, 0))
-        gamma = (stdx + stdy)/2.0
+        #gamma = tst_data.mean_std()*(tst_data.dim()**0.5)
+        gwidth2 = util.meddistance(tst_data.stack_xy(), 1000)
         
-        met = MeanEmbeddingTest(test_locs=T, gaussian_width=gamma, alpha=alpha)
+        met = MeanEmbeddingTest(test_locs=T, gaussian_width=gwidth2, alpha=alpha)
         return met
 
     @staticmethod
@@ -748,7 +771,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         [Dx, Vx] = np.linalg.eig(cov_x)
         # shrink the covariance so that the drawn samples will not be so 
         # far away from the data
-        eig_pow = 0.8
+        eig_pow = 1.0 # 1.0 = not shrink
         reduced_cov_x = Vx.dot(np.diag(Dx**eig_pow)).dot(Vx.T)
         cov_y = np.cov(Y.T)
         [Dy, Vy] = np.linalg.eig(cov_y)
@@ -774,18 +797,10 @@ class MeanEmbeddingTest(TwoSampleTest):
         distribution.
         return: (best width index, list of test powers)
         """
-        # number of test locations
+        func_nc_param = MeanEmbeddingTest.compute_nc_parameter
         J = T.shape[0]
-        X, Y = tst_data.xy()
-        powers = np.zeros(len(list_gwidth))
-        for wi, gwidth in enumerate(list_gwidth):
-            # non-centrality parameter
-            lamb = MeanEmbeddingTest.compute_nc_parameter(X, Y, T, gwidth)
-            thresh = stats.chi2.isf(alpha, df=J)
-            power = stats.ncx2.sf(thresh, df=J, nc=lamb)
-            powers[wi] = power
-        besti = np.argmax(powers)
-        return besti, powers
+        return generic_grid_search_gwidth(tst_data, T, J, list_gwidth, alpha,
+                func_nc_param)
             
 
     @staticmethod
@@ -816,24 +831,52 @@ class MeanEmbeddingTest(TwoSampleTest):
 
 
     @staticmethod
-    def asym_gauss_kernel(X, test_locs, gamma):
-        """Compute a X.shape[0] x test_locs.shape[0] Gaussian kernel matrix where
-        the Gaussian width gamma will divide only the data X (not test_locs).
-        This is defined as in Chwialkovski, 2015 (NIPS)
-        """
-        n, d = X.shape
-        X = X/gamma
-        D2 = np.sum(X**2, 1)[:, np.newaxis] - 2*X.dot(test_locs.T) + np.sum(test_locs**2, 1)
-        K = np.exp(-D2)
-        return K
-
-    @staticmethod
     def heu_3gauss_test_locs(J):
         """Draw J test locations with a heuristic.
         The heuristic is to fit a Gaussian to each sample, and another Gaussian 
         in the center of the two. Then, draw test locations from the three Gaussians.
         """
         pass
+
+
+def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_param):
+    """
+    Linear search for the best Gaussian width in the list that maximizes 
+    the test power, fixing the test locations ot T. 
+    The test power is given by the CDF of a non-central Chi-squared 
+    distribution.
+    return: (best width index, list of test powers)
+    """
+    # number of test locations
+    X, Y = tst_data.xy()
+    powers = np.zeros(len(list_gwidth))
+    lambs = np.zeros(len(list_gwidth))
+    thresh = stats.chi2.isf(alpha, df=df)
+    print('thresh: %.3g'% thresh)
+    for wi, gwidth in enumerate(list_gwidth):
+        # non-centrality parameter
+        try:
+            #import pdb; pdb.set_trace()
+            lamb = func_nc_param(X, Y, T, gwidth, reg=0)
+            if lamb <= 0:
+                # This can happen when Z, Sig are ill-conditioned. 
+                #print('negative lamb: %.3g'%lamb)
+                raise np.linalg.LinAlgError
+            power = stats.ncx2.sf(thresh, df=df, nc=lamb)
+            powers[wi] = power
+            lambs[wi] = lamb
+            print('i: %2d, lamb: %5.3g, gwidth: %5.3g, power: %.4f'
+                   %(wi, lamb, gwidth, power))
+        except np.linalg.LinAlgError:
+            # probably matrix inverse failed. 
+            print('LinAlgError. skip width (%d, %.3g)'%(wi, gwidth))
+            powers[wi] = np.NINF
+            lambs[wi] = np.NINF
+    # to prevent the gain of test power from numerical instability, 
+    # consider upto 3 decimal places. Widths that come early in the list 
+    # are preferred if test powers are equal.
+    besti = np.argmax(np.around(powers, 3))
+    return besti, powers
 
 # Used by SmoothCFTest and MeanEmbeddingTest
 def optimize_gaussian_width(tst_data, T, func_z, max_iter=400, 
