@@ -52,23 +52,6 @@ class TwoSampleTest(object):
     #    """Return true if the null hypothesis is rejected"""
     #    return self.pvalue() < self.alpha
 
-class TSTFactory(object):
-    """A factory to produce TwoSampleTest objects from string labels"""
-
-    # MeanEmbeddingTest where the test_locs are drawn from a Gaussian fitted 
-    # to the joint data x, y.
-    MET_GAUSS = 'met_gauss'
-
-    # MeanEmbeddingTest where test_locs are optimized
-
-    def __init__(self):
-        raise NotImplementedError('This factory cannot be instantiated.')
-
-    @staticmethod
-    def create(spec, tst_data):
-        """tst_data: an instance of TSTData.  """ 
-        pass
-
 
 class HotellingT2Test(TwoSampleTest):
     """Two-sample test with Hotelling T-squared statistic.
@@ -325,6 +308,7 @@ class GammaMMDKGaussTest(TwoSampleTest):
         #return list_gwidth2[best_i], gwidth2_powers
 
 
+#-------------------------------------------------
 class SmoothCFTest(TwoSampleTest):
     """Class for two-sample test using smooth characteristic functions.
     Use Gaussian kernel."""
@@ -354,18 +338,11 @@ class SmoothCFTest(TwoSampleTest):
         # test freqs or Gaussian width undefined 
         if self.test_freqs is None: 
             raise ValueError('test_freqs must be specified.')
-        if self.gaussian_width is None:
-            raise ValueError('gaussian_width > 0 must be specified.')
 
         X, Y = tst_data.xy()
         test_freqs = self.test_freqs
         gamma = self.gaussian_width
-        n = X.shape[0]
-        Z = SmoothCFTest.construct_z(X, Y, test_freqs, gamma)
-        Sig = np.cov(Z.T)
-        W = np.mean(Z, 0)
-        # test statistic
-        s = n*np.linalg.solve(Sig, W).dot(W)
+        s = SmoothCFTest.compute_nc_parameter(X, Y, test_freqs, gamma)
         return s
 
     def perform_test(self, tst_data):
@@ -389,6 +366,46 @@ class SmoothCFTest(TwoSampleTest):
 
     
     #---------------------------------
+    @staticmethod
+    def compute_nc_parameter(X, Y, T, gwidth):
+        """
+        Compute the non-centrality parameter of the non-central Chi-squared 
+        which is the distribution of the test statistic under the H_1 (and H_0).
+        The nc parameter is also the test statistic. 
+        """
+        if gwidth is None or gwidth <= 0:
+            raise ValueError('require gaussian_width > 0.')
+
+        n = X.shape[0]
+        Z = SmoothCFTest.construct_z(X, Y, T, gwidth)
+        Sig = np.cov(Z.T)
+        W = np.mean(Z, 0)
+        # test statistic
+        s = n*np.linalg.solve(Sig, W).dot(W)
+        return s
+
+    @staticmethod
+    def grid_search_gwidth(tst_data, T, list_gwidth, alpha):
+        """
+        Linear search for the best Gaussian width in the list that maximizes 
+        the test power, fixing the test locations ot T. 
+        The test power is given by the CDF of a non-central Chi-squared 
+        distribution.
+        return: (best width index, list of test powers)
+        """
+        # number of test locations
+        J = T.shape[0]
+        X, Y = tst_data.xy()
+        powers = np.zeros(len(list_gwidth))
+        for wi, gwidth in enumerate(list_gwidth):
+            # non-centrality parameter
+            lamb = SmoothCFTest.compute_nc_parameter(X, Y, T, gwidth)
+            thresh = stats.chi2.isf(alpha, df=J)
+            power = stats.ncx2.sf(thresh, df=J, nc=lamb)
+            powers[wi] = power
+        besti = np.argmax(powers)
+        return besti, powers
+            
 
     @staticmethod
     def create_randn(tst_data, J, alpha=0.01, seed=19):
@@ -528,6 +545,7 @@ class SmoothCFTest(TwoSampleTest):
                 info['obj_values']}
         return ( gamma, ninfo  )
 
+#-------------------------------------------------
 class MeanEmbeddingTest(TwoSampleTest):
     """Class for two-sample test using squared difference of mean embeddings. 
     Use Gaussian kernel."""
@@ -568,21 +586,12 @@ class MeanEmbeddingTest(TwoSampleTest):
         # test locations or Gaussian width undefined 
         if self.test_locs is None: 
             raise ValueError('test_locs must be specified.')
-        if self.gaussian_width is None:
-            raise ValueError('gaussian_width > 0 must be specified.')
 
         X, Y = tst_data.xy()
         test_locs = self.test_locs
         gamma = self.gaussian_width
-        n = X.shape[0]
-        g = MeanEmbeddingTest.asym_gauss_kernel(X, test_locs, gamma)
-        h = MeanEmbeddingTest.asym_gauss_kernel(Y, test_locs, gamma)
-        Z = g-h
-        Sig = np.cov(Z.T)
-        W = np.mean(Z, 0)
-        # test statistic
-        s = n*np.linalg.solve(Sig, W).dot(W)
-        return s
+        stat = MeanEmbeddingTest.compute_nc_parameter(X, Y, test_locs, gamma)
+        return stat
 
     def visual_test(self, tst_data):
         results = self.perform_test(tst_data)
@@ -595,7 +604,27 @@ class MeanEmbeddingTest(TwoSampleTest):
         plt.legend(loc='best', frameon=True)
         plt.title('%s. p-val: %.3g. stat: %.3g'%(type(self).__name__, pval, s))
         plt.show()
+
     #===============================
+    @staticmethod
+    def compute_nc_parameter(X, Y, T, gwidth):
+        """
+        Compute the non-centrality parameter of the non-central Chi-squared 
+        which is the distribution of the test statistic under the H_1 (and H_0).
+        The nc parameter is also the test statistic. 
+        """
+        if gwidth is None or gwidth <= 0:
+            raise ValueError('require gaussian_width > 0.')
+        n = X.shape[0]
+        g = MeanEmbeddingTest.asym_gauss_kernel(X, T, gwidth)
+        h = MeanEmbeddingTest.asym_gauss_kernel(Y, T, gwidth)
+        Z = g-h
+        Sig = np.cov(Z.T)
+        W = np.mean(Z, 0)
+        # test statistic
+        s = n*np.linalg.solve(Sig, W).dot(W)
+        return s
+
 
     @staticmethod 
     def construct_z_theano(Xth, Yth, T, gaussian_width):
@@ -735,6 +764,29 @@ class MeanEmbeddingTest(TwoSampleTest):
         # reset the seed back 
         np.random.set_state(rand_state)
         return T0
+
+    @staticmethod
+    def grid_search_gwidth(tst_data, T, list_gwidth, alpha):
+        """
+        Linear search for the best Gaussian width in the list that maximizes 
+        the test power, fixing the test locations ot T. 
+        The test power is given by the CDF of a non-central Chi-squared 
+        distribution.
+        return: (best width index, list of test powers)
+        """
+        # number of test locations
+        J = T.shape[0]
+        X, Y = tst_data.xy()
+        powers = np.zeros(len(list_gwidth))
+        for wi, gwidth in enumerate(list_gwidth):
+            # non-centrality parameter
+            lamb = MeanEmbeddingTest.compute_nc_parameter(X, Y, T, gwidth)
+            thresh = stats.chi2.isf(alpha, df=J)
+            power = stats.ncx2.sf(thresh, df=J, nc=lamb)
+            powers[wi] = power
+        besti = np.argmax(powers)
+        return besti, powers
+            
 
     @staticmethod
     def optimize_gwidth(tst_data, T, max_iter=400, 
