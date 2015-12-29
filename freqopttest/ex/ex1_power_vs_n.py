@@ -19,7 +19,7 @@ from independent_jobs.engines.BatchClusterParameters import BatchClusterParamete
 from independent_jobs.engines.SerialComputationEngine import SerialComputationEngine
 from independent_jobs.engines.SlurmComputationEngine import SlurmComputationEngine
 from independent_jobs.tools.Log import logger
-from freqopttest.ex2_vary_d  import get_func2label_map
+from freqopttest.ex.ex2_vary_d  import get_func2label_map
 import math
 import numpy as np
 import os
@@ -40,7 +40,19 @@ def job_met_opt(prob_label, tr, te, r, ni, n):
     # MeanEmbeddingTest. optimize the test locations
     met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
             'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r+92856,
-            'tol_fun': 1e-3}
+            'tol_fun': 1e-4}
+    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
+    met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
+    met_opt_test  = met_opt.perform_test(te)
+    return met_opt_test
+
+def job_met_opt10(prob_label, tr, te, r, ni, n):
+    """MeanEmbeddingTest with test locations optimzied.
+    Return results from calling perform_test()"""
+    # MeanEmbeddingTest. optimize the test locations
+    met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
+            'locs_step_size': 1.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
+            'tol_fun': 1e-4}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
@@ -50,7 +62,7 @@ def job_met_gwopt(prob_label, tr, te, r, ni, n):
     """MeanEmbeddingTest. Optimize only the Gaussian width. 
     Fix the test locations."""
     op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
+                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
     # optimize on the training set
     T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
     gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
@@ -66,7 +78,16 @@ def job_scf_randn(prob_label, tr, te, r, ni, n):
 def job_scf_opt(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
     op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
+    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
+    scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
+    scf_opt_test = scf_opt.perform_test(te)
+    return scf_opt_test
+
+def job_scf_opt10(prob_label, tr, te, r, ni, n):
+    """SmoothCFTest with frequencies optimized."""
+    op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 1.0,
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -76,7 +97,7 @@ def job_scf_gwopt(prob_label, tr, te, r, ni, n):
     """SmoothCFTest. Optimize only the Gaussian width. 
     Fix the test frequencies"""
     op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
+                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
     # optimize on the training set
     rand_state = np.random.get_state()
     np.random.seed(seed=r+92856)
@@ -165,9 +186,11 @@ class Ex1Job(IndependentJob):
 # pickle is used when collecting the results from the submitted jobs.
 from freqopttest.ex.ex1_power_vs_n import job_met_heu
 from freqopttest.ex.ex1_power_vs_n import job_met_opt
+from freqopttest.ex.ex1_power_vs_n import job_met_opt10
 from freqopttest.ex.ex1_power_vs_n import job_met_gwopt
 from freqopttest.ex.ex1_power_vs_n import job_scf_randn
 from freqopttest.ex.ex1_power_vs_n import job_scf_opt
+from freqopttest.ex.ex1_power_vs_n import job_scf_opt10
 from freqopttest.ex.ex1_power_vs_n import job_scf_gwopt
 from freqopttest.ex.ex1_power_vs_n import job_lin_mmd
 from freqopttest.ex.ex1_power_vs_n import job_hotelling
@@ -182,9 +205,9 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 500
-method_job_funcs = [ job_met_opt, job_met_gwopt, 
-         job_scf_opt, job_scf_gwopt, job_lin_mmd, job_hotelling]
+reps = 100
+method_job_funcs = [ job_met_opt, job_met_opt10, job_met_gwopt, 
+         job_scf_opt, job_scf_opt10, job_scf_gwopt, job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (ni, r) already exists.

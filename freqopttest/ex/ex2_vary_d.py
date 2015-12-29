@@ -32,17 +32,44 @@ def job_met_opt(sample_source, tr, te, r):
     # MeanEmbeddingTest. optimize the test locations
     met_opt_options = {'n_test_locs': J, 'max_iter': 300, 
             'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r+92856,
-            'tol_fun': 1e-3}
+            'tol_fun': 1e-4}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
     return met_opt_test
 
+def job_met_opt5(sample_source, tr, te, r):
+    """MeanEmbeddingTest with test locations optimzied.
+    Large step size
+    Return results from calling perform_test()"""
+    # MeanEmbeddingTest. optimize the test locations
+    met_opt_options = {'n_test_locs': J, 'max_iter': 300, 
+            'locs_step_size': 0.5, 'gwidth_step_size': 0.1, 'seed': r+92856,
+            'tol_fun': 1e-4}
+    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
+    met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
+    met_opt_test  = met_opt.perform_test(te)
+    return met_opt_test
+
+def job_met_opt10(sample_source, tr, te, r):
+    """MeanEmbeddingTest with test locations optimzied.
+    Large step size
+    Return results from calling perform_test()"""
+    # MeanEmbeddingTest. optimize the test locations
+    met_opt_options = {'n_test_locs': J, 'max_iter': 300, 
+            'locs_step_size': 1.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
+            'tol_fun': 1e-4}
+    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
+    met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
+    met_opt_test  = met_opt.perform_test(te)
+    return met_opt_test
+
+
 def job_met_gwopt(sample_source, tr, te, r):
     """MeanEmbeddingTest. Optimize only the Gaussian width. 
     Fix the test locations."""
     op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
+                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
     # optimize on the training set
     T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
     gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
@@ -52,7 +79,16 @@ def job_met_gwopt(sample_source, tr, te, r):
 def job_scf_opt(sample_source, tr, te, r):
     """SmoothCFTest with frequencies optimized."""
     op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
+    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
+    scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
+    scf_opt_test = scf_opt.perform_test(te)
+    return scf_opt_test
+
+def job_scf_opt10(sample_source, tr, te, r):
+    """SmoothCFTest with frequencies optimized."""
+    op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 1.0, 
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -62,7 +98,7 @@ def job_scf_gwopt(sample_source, tr, te, r):
     """SmoothCFTest. Optimize only the Gaussian width. 
     Fix the test frequencies"""
     op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
+                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
     # optimize on the training set
     rand_state = np.random.get_state()
     np.random.seed(seed=r+92856)
@@ -104,7 +140,7 @@ class Ex2Job(IndependentJob):
    
     def __init__(self, aggregator, sample_source, prob_label, rep, job_func):
         d = sample_source.dim()
-        walltime = 60*59*24 
+        walltime = 60*59*24 if d*sample_size*tr_proportion/15 >= 8000 else 60*59
         memory = int(tr_proportion*sample_size*1e-2) + 50
 
         IndependentJob.__init__(self, aggregator, walltime=walltime,
@@ -142,21 +178,25 @@ class Ex2Job(IndependentJob):
                 %(prob_label, func_name, J, r, d, alpha, tr_proportion)
         glo.ex_save_result(ex, test_result, prob_label, fname)
 
+
 def get_func2label_map():
     # map: job_func_name |-> plot label
-    all_funcs = [job_met_opt, job_met_gwopt, job_scf_opt, job_scf_gwopt, 
-            job_lin_mmd, job_hotelling]
+    all_funcs = [job_met_opt, job_met_opt5, job_met_opt10, job_met_gwopt,
+            job_scf_opt, job_scf_opt10, job_scf_gwopt, job_lin_mmd, job_hotelling]
     func_names = [f.__name__ for f in all_funcs]
-    labels = ['ME-opt', 'ME-gw-opt', 'SCF-opt', 'SCF-gw-opt', 
-            'MMD-lin', '$T^2$']
+    labels = ['ME-opt', 'ME-opt-0.5', 'ME-opt-1.0', 'ME-gw-opt', 
+            'SCF-opt', 'SCF-opt-1.0', 'SCF-gw-opt', 'MMD-lin', '$T^2$']
     M = {k:v for (k,v) in zip(func_names, labels)}
     return M
 
 # This import is needed so that pickle knows about the class Ex2Job.
 # pickle is used when collecting the results from the submitted jobs.
 from freqopttest.ex.ex2_vary_d import job_met_opt
+from freqopttest.ex.ex2_vary_d import job_met_opt5
+from freqopttest.ex.ex2_vary_d import job_met_opt10
 from freqopttest.ex.ex2_vary_d import job_met_gwopt
 from freqopttest.ex.ex2_vary_d import job_scf_opt
+from freqopttest.ex.ex2_vary_d import job_scf_opt10
 from freqopttest.ex.ex2_vary_d import job_scf_gwopt
 from freqopttest.ex.ex2_vary_d import job_lin_mmd
 from freqopttest.ex.ex2_vary_d import job_hotelling
@@ -169,7 +209,7 @@ from freqopttest.ex.ex2_vary_d import Ex2Job
 ex = 2
 
 # dimensions to try 
-dimensions = [5*i for i in range(1, 8+1)] 
+dimensions = [5*i for i in range(1, 5+1)] 
 # sample size = n (the number training and test sizes)
 sample_size = 20000
 
@@ -179,8 +219,8 @@ alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each dimension
 reps = 100
-method_job_funcs = [ job_met_opt, job_met_gwopt, 
-         job_scf_opt, job_scf_gwopt, job_lin_mmd, job_hotelling]
+method_job_funcs = [ job_met_opt,  job_met_opt10, job_met_gwopt, 
+         job_scf_opt, job_scf_opt10, job_scf_gwopt, job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (di, r) already exists.
