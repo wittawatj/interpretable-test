@@ -7,6 +7,7 @@ import freqopttest.tst as tst
 import freqopttest.glo as glo
 import freqopttest.util as util 
 import freqopttest.kernel as kernel 
+import exglobal
 
 # need independent_jobs package 
 # https://github.com/karlnapf/independent-jobs
@@ -19,7 +20,6 @@ from independent_jobs.engines.BatchClusterParameters import BatchClusterParamete
 from independent_jobs.engines.SerialComputationEngine import SerialComputationEngine
 from independent_jobs.engines.SlurmComputationEngine import SlurmComputationEngine
 from independent_jobs.tools.Log import logger
-from freqopttest.ex.ex2_vary_d  import get_func2label_map
 import math
 import numpy as np
 import os
@@ -41,7 +41,7 @@ def job_met_opt(prob_label, tr, te, r, ni, n):
     met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
             'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r+92856,
             'tol_fun': 1e-4}
-    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
+    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
     return met_opt_test
@@ -53,7 +53,7 @@ def job_met_opt10(prob_label, tr, te, r, ni, n):
     met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
             'locs_step_size': 1.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
             'tol_fun': 1e-4}
-    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, **met_opt_options)
+    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
     return met_opt_test
@@ -67,7 +67,24 @@ def job_met_gwopt(prob_label, tr, te, r, ni, n):
     T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
     gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
     met_gwopt = tst.MeanEmbeddingTest(T_randn, gwidth, alpha)
+    raise ValueError('Use job_met_gwgrid instead')
     return met_gwopt.perform_test(te)
+
+def job_met_gwgrid(prob_label, tr, te, r, ni, n):
+    """MeanEmbeddingTest. Optimize only the Gaussian width with grid search
+    Fix the test locations."""
+
+    # optimize on the training set
+    T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
+    med = util.meddistance(tr.stack_xy(), 1000)
+    list_gwidth = np.hstack( ( (med**2) *(2.0**np.linspace(-5, 5, 40) ) ) )
+    list_gwidth.sort()
+    besti, powers = tst.MeanEmbeddingTest.grid_search_gwidth(tr, T_randn,
+            list_gwidth, alpha)
+
+    best_width2 = list_gwidth[besti]
+    met_grid = tst.MeanEmbeddingTest(T_randn, best_width2, alpha)
+    return met_grid.perform_test(te)
 
 def job_scf_randn(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies drawn from randn(). tr unused."""
@@ -79,7 +96,7 @@ def job_scf_opt(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
     op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
             'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
-    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
+    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
     return scf_opt_test
@@ -88,7 +105,7 @@ def job_scf_opt10(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
     op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 1.0,
             'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
-    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, **op)
+    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
     return scf_opt_test
@@ -107,7 +124,29 @@ def job_scf_gwopt(prob_label, tr, te, r, ni, n):
 
     gwidth, info = tst.SmoothCFTest.optimize_gwidth(tr, T_randn, **op_gwidth)
     scf_gwopt = tst.SmoothCFTest(T_randn, gwidth, alpha)
+    raise ValueError('Use job_scf_gwgrid instead')
     return scf_gwopt.perform_test(te)
+
+def job_scf_gwgrid(prob_label, tr, te, r, ni, n):
+
+    rand_state = np.random.get_state()
+    np.random.seed(r+92856)
+
+    d = tr.dim()
+    T_randn = np.random.randn(J, d)
+    np.random.set_state(rand_state)
+
+    # grid search to determine the initial gwidth
+    mean_sd = tr.mean_std()
+    scales = 2.0**np.linspace(-4, 4, 20)
+    list_gwidth = np.hstack( (mean_sd*scales*(d**0.5), 2**np.linspace(-20, 10, 20) ))
+    list_gwidth.sort()
+    besti, powers = tst.SmoothCFTest.grid_search_gwidth(tr, T_randn,
+            list_gwidth, alpha)
+    # initialize with the best width from the grid search
+    best_width = list_gwidth[besti]
+    scf_gwgrid = tst.SmoothCFTest(T_randn, best_width, alpha)
+    return scf_gwgrid.perform_test(te)
 
 def job_lin_mmd(prob_label, tr, te, r, ni, n):
     """Linear mmd with grid search to choose the best Gaussian width."""
@@ -188,10 +227,12 @@ from freqopttest.ex.ex1_power_vs_n import job_met_heu
 from freqopttest.ex.ex1_power_vs_n import job_met_opt
 from freqopttest.ex.ex1_power_vs_n import job_met_opt10
 from freqopttest.ex.ex1_power_vs_n import job_met_gwopt
+from freqopttest.ex.ex1_power_vs_n import job_met_gwgrid
 from freqopttest.ex.ex1_power_vs_n import job_scf_randn
 from freqopttest.ex.ex1_power_vs_n import job_scf_opt
 from freqopttest.ex.ex1_power_vs_n import job_scf_opt10
 from freqopttest.ex.ex1_power_vs_n import job_scf_gwopt
+from freqopttest.ex.ex1_power_vs_n import job_scf_gwgrid
 from freqopttest.ex.ex1_power_vs_n import job_lin_mmd
 from freqopttest.ex.ex1_power_vs_n import job_hotelling
 from freqopttest.ex.ex1_power_vs_n import Ex1Job
@@ -205,9 +246,9 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 100
-method_job_funcs = [ job_met_opt, job_met_opt10, job_met_gwopt, 
-         job_scf_opt, job_scf_opt10, job_scf_gwopt, job_lin_mmd, job_hotelling]
+reps = 200
+method_job_funcs = [ job_met_opt, job_met_opt10, job_met_gwgrid,
+         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (ni, r) already exists.
@@ -220,6 +261,7 @@ def get_sample_source(prob_label):
 
     # map: prob_label -> (sample_source, sample_sizes)
     sample_sizes = [i*4000 for i in range(1, 5+1)]
+    #sample_sizes = [i*1000 for i in range(1, 3+1)]
     prob2ss = {'SSBlobs': (data.SSBlobs(), sample_sizes), 
             'gmd_d20': (data.SSGaussMeanDiff(d=20, my=1.0), sample_sizes),
             'gvd_d10': (data.SSGaussVarDiff(d=20), sample_sizes), 
@@ -299,7 +341,7 @@ def run_dataset(prob_label):
                 test_results[r, ni, mi] = test_result
 
     func_names = [f.__name__ for f in method_job_funcs]
-    func2labels = get_func2label_map()
+    func2labels = exglobal.get_func2label_map()
     method_labels = [func2labels[f] for f in func_names if f in func2labels]
     # save results 
     results = {'test_results': test_results, 'sample_sizes': sample_sizes, 

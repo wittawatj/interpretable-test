@@ -460,7 +460,7 @@ class SmoothCFTest(TwoSampleTest):
         return z
 
     @staticmethod
-    def optimize_freqs_width(tst_data, n_test_freqs=10, max_iter=400,
+    def optimize_freqs_width(tst_data, alpha, n_test_freqs=10, max_iter=400,
             freqs_step_size=0.2, gwidth_step_size=0.01, batch_proportion=1.0,
             tol_fun=1e-3, seed=1):
         """Optimize the test frequencies and the Gaussian kernel width by 
@@ -494,19 +494,30 @@ class SmoothCFTest(TwoSampleTest):
         # reset the seed back to the original
         np.random.set_state(rand_state)
 
+        # grid search to determine the initial gwidth
+        mean_sd = tst_data.mean_std()
+        scales = 2.0**np.linspace(-4, 4, 20)
+        list_gwidth = np.hstack( (mean_sd*scales*(d**0.5), 2**np.linspace(-20, 10, 20) ))
+        list_gwidth.sort()
+        besti, powers = SmoothCFTest.grid_search_gwidth(tst_data, T0,
+                list_gwidth, alpha)
+        # initialize with the best width from the grid search
+        gwidth0 = list_gwidth[besti]
+
         func_z = SmoothCFTest.construct_z_theano
         # info = optimization info 
-        T, gamma, info = optimize_T_gaussian_width(tst_data, T0, func_z, 
+        T, gamma, info = optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, 
                 max_iter=max_iter, T_step_size=freqs_step_size, 
                 gwidth_step_size=gwidth_step_size, batch_proportion=batch_proportion,
                 tol_fun=tol_fun)
 
         ninfo = {'test_freqs': info['Ts'], 'test_freqs0': info['T0'], 
-                'gwidths': info['gwidths'], 'obj_values': info['obj_values']}
+                'gwidths': info['gwidths'], 'obj_values': info['obj_values'],
+                'gwidth0': gwidth0, 'gwidth0_powers': powers}
         return (T, gamma, ninfo  )
 
     @staticmethod
-    def optimize_gwidth(tst_data, T, max_iter=400, 
+    def optimize_gwidth(tst_data, T, gwidth0, max_iter=400, 
             gwidth_step_size=0.1, batch_proportion=1.0, tol_fun=1e-3):
         """Optimize the Gaussian kernel width by 
         maximizing the test power, fixing the test frequencies to T. X, Y should
@@ -523,7 +534,7 @@ class SmoothCFTest(TwoSampleTest):
 
         func_z = SmoothCFTest.construct_z_theano
         # info = optimization info 
-        gamma, info = optimize_gaussian_width(tst_data, T, func_z, 
+        gamma, info = optimize_gaussian_width(tst_data, T, gwidth0, func_z, 
                 max_iter=max_iter, gwidth_step_size=gwidth_step_size,
                 batch_proportion=batch_proportion, tol_fun=tol_fun)
 
@@ -698,7 +709,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         return met
 
     @staticmethod
-    def optimize_locs_width(tst_data, n_test_locs=10, max_iter=400, 
+    def optimize_locs_width(tst_data, alpha, n_test_locs=10, max_iter=400, 
             locs_step_size=0.1, gwidth_step_size=0.01, batch_proportion=1.0, 
             tol_fun=1e-3, seed=1):
         """Optimize the test locations and the Gaussian kernel width by 
@@ -724,14 +735,23 @@ class MeanEmbeddingTest(TwoSampleTest):
 
         T0 = MeanEmbeddingTest.init_locs_2randn(tst_data, n_test_locs, seed=seed)
         func_z = MeanEmbeddingTest.construct_z_theano
+        # Use grid search to initialize the gwidth
+        med = util.meddistance(tst_data.stack_xy(), 1000)
+        list_gwidth2 = np.hstack( ( (med**2) *(2.0**np.linspace(-5, 5, 40) ) ) )
+        list_gwidth2.sort()
+        besti, powers = MeanEmbeddingTest.grid_search_gwidth(tst_data, T0,
+                list_gwidth2, alpha)
+        gwidth0 = list_gwidth2[besti]
+
         # info = optimization info 
-        T, gamma, info = optimize_T_gaussian_width(tst_data, T0, func_z, 
+        T, gamma, info = optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, 
                 max_iter=max_iter, T_step_size=locs_step_size, 
                 gwidth_step_size=gwidth_step_size, batch_proportion=batch_proportion,
                 tol_fun=tol_fun)
 
         ninfo = {'test_locs': info['Ts'], 'test_locs0': info['T0'], 
-                'gwidths': info['gwidths'], 'obj_values': info['obj_values']}
+                'gwidths': info['gwidths'], 'obj_values': info['obj_values'],
+                'gwidth0': gwidth0, 'gwidth0_powers': powers}
         return (T, gamma, ninfo  )
 
     @staticmethod 
@@ -771,7 +791,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         [Dx, Vx] = np.linalg.eig(cov_x)
         # shrink the covariance so that the drawn samples will not be so 
         # far away from the data
-        eig_pow = 1.0 # 1.0 = not shrink
+        eig_pow = 0.9 # 1.0 = not shrink
         reduced_cov_x = Vx.dot(np.diag(Dx**eig_pow)).dot(Vx.T)
         cov_y = np.cov(Y.T)
         [Dy, Vy] = np.linalg.eig(cov_y)
@@ -804,7 +824,7 @@ class MeanEmbeddingTest(TwoSampleTest):
             
 
     @staticmethod
-    def optimize_gwidth(tst_data, T, max_iter=400, 
+    def optimize_gwidth(tst_data, T, gwidth0, max_iter=400, 
             gwidth_step_size=0.1, batch_proportion=1.0, tol_fun=1e-3):
         """Optimize the Gaussian kernel width by 
         maximizing the test power, fixing the test locations to T. X, Y should
@@ -821,7 +841,7 @@ class MeanEmbeddingTest(TwoSampleTest):
 
         func_z = MeanEmbeddingTest.construct_z_theano
         # info = optimization info 
-        gamma, info = optimize_gaussian_width(tst_data, T, func_z, 
+        gamma, info = optimize_gaussian_width(tst_data, T, gwidth0, func_z, 
                 max_iter=max_iter, gwidth_step_size=gwidth_step_size,
                 batch_proportion=batch_proportion, tol_fun=tol_fun)
 
@@ -878,11 +898,13 @@ def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_para
     besti = np.argmax(np.around(powers, 3))
     return besti, powers
 
+
 # Used by SmoothCFTest and MeanEmbeddingTest
-def optimize_gaussian_width(tst_data, T, func_z, max_iter=400, 
+def optimize_gaussian_width(tst_data, T, gwidth0, func_z, max_iter=400, 
         gwidth_step_size=0.1, batch_proportion=1.0, 
         tol_fun=1e-3 ):
-    """Optimize the Gaussian kernel width by maximizing the test power.
+    """Optimize the Gaussian kernel width by gradient ascent 
+    by maximizing the test power.
     This does the same thing as optimize_T_gaussian_width() without optimizing 
     T (T = test locations / test frequencies).
 
@@ -898,7 +920,7 @@ def optimize_gaussian_width(tst_data, T, func_z, max_iter=400,
     it = theano.shared(1, name='iter')
     # square root of the Gaussian width. Use square root to handle the 
     # positivity constraint by squaring it later.
-    gamma_sq_init = 1e-4 + tst_data.mean_std()**0.5
+    gamma_sq_init = gwidth0**0.5
     gamma_sq_th = theano.shared(gamma_sq_init, name='gamma')
 
     #sqr(x) = x^2
@@ -949,7 +971,7 @@ def optimize_gaussian_width(tst_data, T, func_z, max_iter=400,
 
 
 # Used by SmoothCFTest and MeanEmbeddingTest
-def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400, 
+def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400, 
         T_step_size=0.05, gwidth_step_size=0.01, batch_proportion=1.0, 
         tol_fun=1e-3 ):
     """Optimize the T (test locations for MeanEmbeddingTest, frequencies for 
@@ -961,6 +983,7 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400,
 
     - T0: Jxd numpy array. initial value of T,  where
       J = the number of test locations/frequencies
+    - gwidth0: initial Gaussian width (width squared for the MeanEmbeddingTest)
     - func_z: function that works on Theano variables 
         to construct features to be used for the T^2 test. 
         (X, Y, T, gaussian_width) |-> n x J'
@@ -983,7 +1006,7 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400,
     it = theano.shared(1, name='iter')
     # square root of the Gaussian width. Use square root to handle the 
     # positivity constraint by squaring it later.
-    gamma_sq_init = 1e-4 + tst_data.mean_std()**0.5
+    gamma_sq_init = gwidth0**0.5
     gamma_sq_th = theano.shared(gamma_sq_init, name='gamma')
 
     #sqr(x) = x^2
@@ -1044,7 +1067,8 @@ def optimize_T_gaussian_width(tst_data, T0, func_z, max_iter=400,
     gams = gams[:t+1]
 
     # optimization info 
-    info = {'Ts': Ts, 'T0':T0, 'gwidths': gams, 'obj_values': S}
+    info = {'Ts': Ts, 'T0':T0, 'gwidths': gams, 'obj_values': S, 'gwidth0':
+            gwidth0}
     return (Ts[-1], gams[-1], info  )
 
 
