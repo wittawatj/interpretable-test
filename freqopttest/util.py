@@ -42,10 +42,10 @@ def meddistance(X, subsample=None):
 
 
 def is_real_num(x):
-    """return true if x there is no error when converting x to a float"""
+    """return true if x is a real number"""
     try:
         float(x)
-        return True
+        return not (np.isnan(x) or np.isinf(x))
     except ValueError:
         return False
     

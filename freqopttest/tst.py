@@ -332,7 +332,7 @@ class SmoothCFTest(TwoSampleTest):
         if util.is_real_num(width) and float(width) > 0:
             self._gaussian_width = float(width)
         else:
-            raise ValueError('gaussian_width must be a float > 0.')
+            raise ValueError('gaussian_width must be a float > 0. Was %s'%(str(width)))
 
     def compute_stat(self, tst_data):
         # test freqs or Gaussian width undefined 
@@ -368,7 +368,7 @@ class SmoothCFTest(TwoSampleTest):
         The nc parameter is also the test statistic. 
         """
         if gwidth is None or gwidth <= 0:
-            raise ValueError('require gaussian_width > 0.')
+            raise ValueError('require gaussian_width > 0. Was %s'%(str(gwidth)))
 
         Z = SmoothCFTest.construct_z(X, Y, T, gwidth)
         s = generic_nc_parameter(Z, reg)
@@ -499,6 +499,8 @@ class SmoothCFTest(TwoSampleTest):
                 list_gwidth, alpha)
         # initialize with the best width from the grid search
         gwidth0 = list_gwidth[besti]
+        assert util.is_real_num(gwidth0), 'gwidth0 not real. Was %s'%str(gwidth0)
+        assert gwidth0 > 0, 'gwidth0 not positive. Was %.3g'%gwidth0
 
         func_z = SmoothCFTest.construct_z_theano
         # info = optimization info 
@@ -506,6 +508,7 @@ class SmoothCFTest(TwoSampleTest):
                 max_iter=max_iter, T_step_size=freqs_step_size, 
                 gwidth_step_size=gwidth_step_size, batch_proportion=batch_proportion,
                 tol_fun=tol_fun)
+        assert util.is_real_num(gamma), 'gamma is not real. Was %s' % str(gamma)
 
         ninfo = {'test_freqs': info['Ts'], 'test_freqs0': info['T0'], 
                 'gwidths': info['gwidths'], 'obj_values': info['obj_values'],
@@ -607,7 +610,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         The nc parameter is also the test statistic. 
         """
         if gwidth is None or gwidth <= 0:
-            raise ValueError('require gaussian_width > 0.')
+            raise ValueError('require gaussian_width > 0. Was %s.'%(str(gwidth)))
         n = X.shape[0]
         #g = MeanEmbeddingTest.asym_gauss_kernel(X, T, gwidth)
         #h = MeanEmbeddingTest.asym_gauss_kernel(Y, T, gwidth)
@@ -735,12 +738,15 @@ class MeanEmbeddingTest(TwoSampleTest):
         besti, powers = MeanEmbeddingTest.grid_search_gwidth(tst_data, T0,
                 list_gwidth2, alpha)
         gwidth0 = list_gwidth2[besti]
+        assert util.is_real_num(gwidth0), 'gwidth0 not real. Was %s'%str(gwidth0)
+        assert gwidth0 > 0, 'gwidth0 not positive. Was %.3g'%gwidth0
 
         # info = optimization info 
         T, gamma, info = optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, 
                 max_iter=max_iter, T_step_size=locs_step_size, 
                 gwidth_step_size=gwidth_step_size, batch_proportion=batch_proportion,
                 tol_fun=tol_fun)
+        assert util.is_real_num(gamma), 'gamma is not real. Was %s' % str(gamma)
 
         ninfo = {'test_locs': info['Ts'], 'test_locs0': info['T0'], 
                 'gwidths': info['gwidths'], 'obj_values': info['obj_values'],
@@ -1084,11 +1090,12 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
     info = {'Ts': Ts, 'T0':T0, 'gwidths': gams, 'obj_values': S, 'gwidth0':
             gwidth0}
 
-    if t > 0:
+    if t >= 0:
         opt_T = Ts[-1]
-        opt_gwidth = gams[-1]
+        # for some reason, optimization can give a non-numerical result
+        opt_gwidth = gams[-1] if util.is_real_num(gams[-1]) else gwidth0
     else:
-        # t=0. Probably an error occurred in the first iter.
+        # Probably an error occurred in the first iter.
         opt_T = T0
         opt_gwidth = gwidth0
     return (opt_T, opt_gwidth, info  )
