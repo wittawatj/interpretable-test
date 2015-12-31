@@ -370,12 +370,8 @@ class SmoothCFTest(TwoSampleTest):
         if gwidth is None or gwidth <= 0:
             raise ValueError('require gaussian_width > 0.')
 
-        n = X.shape[0]
         Z = SmoothCFTest.construct_z(X, Y, T, gwidth)
-        Sig = np.cov(Z.T)
-        W = np.mean(Z, 0)
-        # test statistic
-        s = n*np.linalg.solve(Sig + reg*np.eye(Sig.shape[0]), W).dot(W)
+        s = generic_nc_parameter(Z, reg)
         return s
 
     @staticmethod
@@ -618,10 +614,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         g = MeanEmbeddingTest.gauss_kernel(X, T, gwidth)
         h = MeanEmbeddingTest.gauss_kernel(Y, T, gwidth)
         Z = g-h
-        Sig = np.cov(Z.T)
-        W = np.mean(Z, 0)
-        # test statistic
-        s = n*np.linalg.solve(Sig + reg*np.eye(Sig.shape[0]), W).dot(W)
+        s = generic_nc_parameter(Z, reg)
         return s
 
 
@@ -859,6 +852,26 @@ class MeanEmbeddingTest(TwoSampleTest):
         pass
 
 
+# ///////////// global functions ///////////////
+
+def generic_nc_parameter(Z, reg=0.0):
+    """
+    Compute the non-centrality parameter of the non-central Chi-squared 
+    which is the distribution of the test statistic under the H_1 (and H_0).
+    The nc parameter is also the test statistic. 
+    """
+    n = Z.shape[0]
+    Sig = np.cov(Z.T)
+    W = np.mean(Z, 0)
+    n_features = len(W)
+    # test statistic
+    try:
+        s = n*np.linalg.solve(Sig + reg*np.eye(Sig.shape[0]), W).dot(W)
+    except np.linalg.LinAlgError:
+        print('LinAlgError. Return -1 as the nc_parameter.')
+        s = -1 
+    return s
+
 def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_param):
     """
     Linear search for the best Gaussian width in the list that maximizes 
@@ -1049,7 +1062,8 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
         try:
             S[t] = func(X[ind, :], Y[ind, :])
         except: 
-            print 'Exception occurred during gradient descent. Stop optimization.'
+            print('Exception occurred during gradient descent. Stop optimization.')
+            print('Return the value from previous iter. ')
             import traceback as tb 
             tb.print_exc()
             t = t -1
@@ -1069,6 +1083,14 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
     # optimization info 
     info = {'Ts': Ts, 'T0':T0, 'gwidths': gams, 'obj_values': S, 'gwidth0':
             gwidth0}
-    return (Ts[-1], gams[-1], info  )
+
+    if t > 0:
+        opt_T = Ts[-1]
+        opt_gwidth = gams[-1]
+    else:
+        # t=0. Probably an error occurred in the first iter.
+        opt_T = T0
+        opt_gwidth = gwidth0
+    return (opt_T, opt_gwidth, info  )
 
 

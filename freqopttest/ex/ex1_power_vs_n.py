@@ -40,7 +40,7 @@ def job_met_opt(prob_label, tr, te, r, ni, n):
     # MeanEmbeddingTest. optimize the test locations
     met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
             'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r+92856,
-            'tol_fun': 1e-4}
+            'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
@@ -52,7 +52,7 @@ def job_met_opt10(prob_label, tr, te, r, ni, n):
     # MeanEmbeddingTest. optimize the test locations
     met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
             'locs_step_size': 1.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
-            'tol_fun': 1e-4}
+            'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
@@ -62,7 +62,7 @@ def job_met_gwopt(prob_label, tr, te, r, ni, n):
     """MeanEmbeddingTest. Optimize only the Gaussian width. 
     Fix the test locations."""
     op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
+                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
     T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
     gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
@@ -94,8 +94,8 @@ def job_scf_randn(prob_label, tr, te, r, ni, n):
 
 def job_scf_opt(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
+    op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 0.1, 
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -103,8 +103,8 @@ def job_scf_opt(prob_label, tr, te, r, ni, n):
 
 def job_scf_opt10(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 1.0,
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
+    op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 1.0,
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -113,8 +113,8 @@ def job_scf_opt10(prob_label, tr, te, r, ni, n):
 def job_scf_gwopt(prob_label, tr, te, r, ni, n):
     """SmoothCFTest. Optimize only the Gaussian width. 
     Fix the test frequencies"""
-    op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
+    op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
+                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
     rand_state = np.random.get_state()
     np.random.seed(seed=r+92856)
@@ -246,9 +246,11 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 200
-method_job_funcs = [ job_met_opt, job_met_opt10, job_met_gwgrid,
-         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+reps = 300
+#method_job_funcs = [ job_met_opt, job_met_opt10, job_met_gwgrid,
+#         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+method_job_funcs = [ job_met_opt10, job_met_gwgrid,
+         job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (ni, r) already exists.
@@ -260,13 +262,13 @@ def get_sample_source(prob_label):
     in a 2-tuple"""
 
     # map: prob_label -> (sample_source, sample_sizes)
-    sample_sizes = [i*4000 for i in range(1, 5+1)]
+    sample_sizes = [i*2000 for i in range(1, 5+1)]
     #sample_sizes = [i*1000 for i in range(1, 3+1)]
     prob2ss = {'SSBlobs': (data.SSBlobs(), sample_sizes), 
-            'gmd_d20': (data.SSGaussMeanDiff(d=20, my=1.0), sample_sizes),
-            'gvd_d10': (data.SSGaussVarDiff(d=20), sample_sizes), 
+            'gmd_d100': (data.SSGaussMeanDiff(d=100, my=1.0), sample_sizes),
+            'gvd_d50': (data.SSGaussVarDiff(d=50), sample_sizes), 
             # The null is true
-            'sg_d5': (data.SSSameGauss(d=5), sample_sizes)
+            'sg_d50': (data.SSSameGauss(d=50), sample_sizes)
             }
     if prob_label not in prob2ss:
         raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )

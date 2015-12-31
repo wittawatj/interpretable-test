@@ -32,9 +32,9 @@ def job_met_opt(sample_source, tr, te, r):
     """MeanEmbeddingTest with test locations optimzied.
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 300, 
+    met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
             'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r+92856,
-            'tol_fun': 1e-4}
+            'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
@@ -45,9 +45,9 @@ def job_met_opt5(sample_source, tr, te, r):
     Large step size
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 300, 
+    met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
             'locs_step_size': 0.5, 'gwidth_step_size': 0.1, 'seed': r+92856,
-            'tol_fun': 1e-4}
+            'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
@@ -58,9 +58,9 @@ def job_met_opt10(sample_source, tr, te, r):
     Large step size
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 300, 
+    met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
             'locs_step_size': 1.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
-            'tol_fun': 1e-4}
+            'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
@@ -70,8 +70,8 @@ def job_met_opt10(sample_source, tr, te, r):
 def job_met_gwopt(sample_source, tr, te, r):
     """MeanEmbeddingTest. Optimize only the Gaussian width. 
     Fix the test locations."""
-    op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
+    op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
+                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
     T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
     gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
@@ -86,8 +86,8 @@ def job_met_gwgrid(sample_source, tr, te, r):
 
 def job_scf_opt(sample_source, tr, te, r):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 0.1, 
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
+    op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 0.1, 
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -95,8 +95,8 @@ def job_scf_opt(sample_source, tr, te, r):
 
 def job_scf_opt10(sample_source, tr, te, r):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 300, 'freqs_step_size': 1.0, 
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
+    op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 1.0, 
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -105,8 +105,8 @@ def job_scf_opt10(sample_source, tr, te, r):
 def job_scf_gwopt(sample_source, tr, te, r):
     """SmoothCFTest. Optimize only the Gaussian width. 
     Fix the test frequencies"""
-    op_gwidth = {'max_iter': 300, 'gwidth_step_size': 0.1,  
-                 'batch_proportion': 1.0, 'tol_fun': 1e-4}
+    op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
+                 'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
     rand_state = np.random.get_state()
     np.random.seed(seed=r+92856)
@@ -214,19 +214,19 @@ from freqopttest.ex.ex2_vary_d import Ex2Job
 
 ex = 2
 
-# dimensions to try 
-dimensions = [5*i for i in range(1, 5+1)] 
 # sample size = n (the number training and test sizes)
-sample_size = 2000
+sample_size = 20000
 
 # number of test locations / test frequencies J
 J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each dimension
-reps = 200
-method_job_funcs = [ job_met_opt,  job_met_opt10, job_met_gwgrid,
-         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+reps = 300
+#method_job_funcs = [ job_met_opt,  job_met_opt10, job_met_gwgrid,
+#         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+method_job_funcs = [  job_met_opt10, job_met_gwgrid,
+         job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (di, r) already exists.
@@ -238,11 +238,14 @@ def get_sample_source_list(prob_label):
     corresponding to one dimension in the list.
     """
     # map: prob_label -> [sample_source]
+    # dimensions to try 
+    dimensions = [5] + [100*i for i in range(1, 5+1)] 
+    high_dims = [5] + [300*i for i in range(1, 5+1)]
     prob2ss = { 
-            'gmd': [data.SSGaussMeanDiff(d=d, my=1.0) for d in dimensions],
+            'gmd': [data.SSGaussMeanDiff(d=d, my=1.0) for d in high_dims],
             'gvd': [data.SSGaussVarDiff(d=d) for d in dimensions], 
             # The null is true
-            'sg': [data.SSSameGauss(d=d) for d in dimensions]
+            'sg': [data.SSSameGauss(d=d) for d in high_dims]
             }
     if prob_label not in prob2ss:
         raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )
@@ -258,6 +261,7 @@ def main():
 def run_dataset(prob_label):
     """Run the experiment"""
     list_ss = get_sample_source_list(prob_label)
+    dimensions = [ss.dim() for ss in list_ss]
 
     # ///////  submit jobs //////////
     # create folder name string
