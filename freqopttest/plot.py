@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_prob_stat_above_thresh(ex, fname, h1_true, xkey, xlabel=None):
+def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel):
     """
     plot the empirical probability that the statistic is above the theshold.
     This can be interpreted as type-1 error (when H0 is true) or test power 
@@ -18,10 +18,9 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, xkey, xlabel=None):
     - ex: experiment number 
     - fname: file name of the aggregated result
     - h1_true: True if H1 is true 
-    - xkey: key used to access the result dictionary to get the values varied 
-        to produce the probability. This can be, for instance, sample_sizes, 
-        dimensions.
-    - xlabel: label of the x-axis. If unspecified, use xkey.
+    - func_xvalues: function taking results dictionary and return the values 
+        to be used for the x-axis values.            
+    - xlabel: label of the x-axis. 
 
     Return loaded results
     """
@@ -34,9 +33,12 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, xkey, xlabel=None):
     mean_pvals = np.mean(pvals, axis=0)
     #std_pvals = np.std(pvals, axis=0)
     #std_pvals = np.sqrt(mean_pvals*(1.0-mean_pvals))
-    ns = np.array(results[xkey])
-    te_proportion = 1.0 - results['tr_proportion']
-    test_sizes = ns*te_proportion
+
+    xvalues = func_xvalues(results)
+
+    #ns = np.array(results[xkey])
+    #te_proportion = 1.0 - results['tr_proportion']
+    #test_sizes = ns*te_proportion
     line_styles = exglo.func_plot_fmt_map()
     method_labels = exglo.get_func2label_map()
     
@@ -46,7 +48,7 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, xkey, xlabel=None):
         fmt = line_styles[func_names[i]]
         #plt.errorbar(ns*te_proportion, mean_pvals[:, i], std_pvals[:, i])
         method_label = method_labels[func_names[i]]
-        plt.plot(test_sizes, mean_pvals[:, i], fmt, label=method_label)
+        plt.plot(xvalues, mean_pvals[:, i], fmt, label=method_label)
     '''
     else:
         # h0 is true 
@@ -60,9 +62,8 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, xkey, xlabel=None):
             
     ylabel = 'test power' if h1_true else 'type-1 error'
     plt.ylabel(ylabel)
-    x_label = xlabel if xlabel is not None else xkey
-    plt.xlabel(x_label)
-    plt.xticks( np.hstack((test_sizes) ))
+    plt.xlabel(xlabel)
+    plt.xticks( np.hstack((xvalues) ))
     
     alpha = results['alpha']
     """
