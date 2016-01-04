@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel):
+def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel,
+        func_title=None):
     """
     plot the empirical probability that the statistic is above the theshold.
     This can be interpreted as type-1 error (when H0 is true) or test power 
@@ -21,6 +22,7 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel):
     - func_xvalues: function taking results dictionary and return the values 
         to be used for the x-axis values.            
     - xlabel: label of the x-axis. 
+    - func_title: a function: results dictionary -> title of the plot
 
     Return loaded results
     """
@@ -81,8 +83,9 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel):
     """
     
     plt.legend(loc='best')
-    plt.title('%s. %d trials. $\\alpha$ = %.2g.'%( results['prob_label'], repeats, 
-                                            alpha) )
+    title = '%s. %d trials. $\\alpha$ = %.2g.'%( results['prob_label'],
+            repeats, alpha) if func_title is None else func_title(results)
+    plt.title(title)
     #plt.grid()
     return results
         
