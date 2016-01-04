@@ -10,9 +10,30 @@ def get_func2label_map():
             'job_met_gwgrid',
             'job_scf_opt', 'job_scf_opt10', 'job_scf_gwopt', 'job_scf_gwgrid', 
             'job_lin_mmd', 'job_hotelling']
-    labels = ['ME-opt', 'ME-opt-0.5', 'ME-opt-1.0', 'ME-gw-opt', 
-            'ME-gw-grid',
-            'SCF-opt', 'SCF-opt-1.0', 'SCF-gw-opt', 'SCF-gw-grid',
+
+    labels = ['ME-full', 'ME-opt-0.5', 'ME-full', 'ME-gw-opt', 
+            'ME-grid',
+            'SCF-full', 'SCF-full', 'SCF-gw-opt', 'SCF-grid',
             'MMD-lin', '$T^2$']
     M = {k:v for (k,v) in zip(func_names, labels)}
     return M
+
+def func_plot_fmt_map():
+    """
+    Return a map from job function names to matplotlib plot styles 
+    """
+    # line_styles = ['o-', 'x-',  '*-', '-_', 'D-', 'h-', '+-', 's-', 'v-', 
+    #               ',-', '1-']
+    M = {}
+    M['job_met_opt'] = 'bo-'
+    M['job_met_opt10'] = 'bo-'
+    M['job_met_gwgrid'] = 'bo--'
+
+    M['job_scf_opt'] = 'r*-'
+    M['job_scf_opt10'] = 'r*-'
+    M['job_scf_gwgrid'] = 'r*--'
+
+    M['job_lin_mmd'] = 'cD-'
+    M['job_hotelling'] = 'yv-'
+    return M
+
