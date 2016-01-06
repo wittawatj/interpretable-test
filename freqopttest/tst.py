@@ -891,7 +891,7 @@ def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_para
     powers = np.zeros(len(list_gwidth))
     lambs = np.zeros(len(list_gwidth))
     thresh = stats.chi2.isf(alpha, df=df)
-    print('thresh: %.3g'% thresh)
+    #print('thresh: %.3g'% thresh)
     for wi, gwidth in enumerate(list_gwidth):
         # non-centrality parameter
         try:
@@ -901,6 +901,7 @@ def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_para
                 # This can happen when Z, Sig are ill-conditioned. 
                 #print('negative lamb: %.3g'%lamb)
                 raise np.linalg.LinAlgError
+            #print('thresh: %.3g, df: %.3g, nc: %.3g'%(thresh, df, lamb))
             power = stats.ncx2.sf(thresh, df=df, nc=lamb)
             powers[wi] = power
             lambs[wi] = lamb

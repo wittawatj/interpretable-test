@@ -28,7 +28,10 @@ def meddistance(X, subsample=None):
     """
     if subsample is None:
         s = np.sum(X**2, 1)
-        D = np.sqrt( s[:, np.newaxis] - 2.0*X.dot(X.T) + s[np.newaxis, :] )
+        D2 =  s[:, np.newaxis] - 2.0*X.dot(X.T) + s[np.newaxis, :] 
+        # to prevent numerical errors from taking sqrt of negative numbers
+        D2[D2 < 0] = 0
+        D = np.sqrt(D2)
         return np.median(D.flatten())
     else:
         assert subsample > 0
