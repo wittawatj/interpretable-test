@@ -240,10 +240,6 @@ class GammaMMDKGaussTest(TwoSampleTest):
         """Compute the test statistic"""
         raise NotImplementedError()
 
-    def visual_test(self, tst_data):
-        """Perform the test and plot the results. This is suitable for use 
-        with IPython."""
-        raise NotImplementedError()
 
     @staticmethod
     def compute_mean_variance_stat(tst_data, gwidth2):

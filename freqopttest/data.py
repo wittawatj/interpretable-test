@@ -128,7 +128,7 @@ class SSGaussMeanDiff(SampleSource):
         return TSTData(X, Y, label='gmd_d%d'%self.d)
 
 class SSGaussVarDiff(SampleSource):
-    """Toy dataset one in Chwialkovski et al., 2015. 
+    """Toy dataset two in Chwialkovski et al., 2015. 
     P = N(0, I), Q = N(0, diag((2, 1, 1, ...))). Only the variances of the first 
     dimension differ."""
 

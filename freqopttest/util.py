@@ -4,14 +4,6 @@ __author__ = 'wittawat'
 
 import numpy as np
 
-class Str(object):
-    """Class containing static methods for string processing"""
-
-    @staticmethod
-    def pretty_numpy_array(precision=3):
-        """Print the numpy array""" 
-        pass
-
 
 def meddistance(X, subsample=None):
     """
