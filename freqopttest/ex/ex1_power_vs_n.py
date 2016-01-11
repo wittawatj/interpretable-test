@@ -88,7 +88,7 @@ def job_met_gwgrid(prob_label, tr, te, r, ni, n):
 
 def job_scf_randn(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies drawn from randn(). tr unused."""
-    scf_randn = tst.SmoothCFTest.create_randn(te, J, alpha, seed=19)
+    scf_randn = tst.SmoothCFTest.create_randn(te, J, alpha, seed=20)
     scf_randn_test = scf_randn.perform_test(te)
     return scf_randn_test
 
