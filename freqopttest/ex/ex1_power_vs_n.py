@@ -249,8 +249,9 @@ tr_proportion = 0.5
 reps = 1000
 #method_job_funcs = [ job_met_opt, job_met_opt10, job_met_gwgrid,
 #         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
-method_job_funcs = [ job_met_opt10, job_met_gwgrid,
-         job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+#method_job_funcs = [ job_met_opt10, job_met_gwgrid,
+#         job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+method_job_funcs = [ job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (ni, r) already exists.
@@ -268,7 +269,8 @@ def get_sample_source(prob_label):
             'gmd_d100': (data.SSGaussMeanDiff(d=100, my=1.0), sample_sizes),
             'gvd_d50': (data.SSGaussVarDiff(d=50), sample_sizes), 
             # The null is true
-            'sg_d50': (data.SSSameGauss(d=50), sample_sizes)
+            'sg_d50': (data.SSSameGauss(d=50), sample_sizes),
+            'sg_d5': (data.SSSameGauss(d=5), sample_sizes)
             }
     if prob_label not in prob2ss:
         raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )

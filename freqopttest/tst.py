@@ -91,6 +91,7 @@ class HotellingT2Test(TwoSampleTest):
         chi2_stat = np.linalg.solve(s, mdiff).dot(mdiff)
         return chi2_stat
 
+
 class LinearMMDTest(TwoSampleTest):
     """Two-sample test with linear MMD^2 statistic. """
     
@@ -109,8 +110,8 @@ class LinearMMDTest(TwoSampleTest):
         X, Y = tst_data.xy()
         n = X.shape[0]
         stat, snd = LinearMMDTest.two_moments(X, Y, self.kernel)
-        var = 2.0*snd
-        pval = stats.norm.sf(stat, loc=0, scale=(var/n)**0.5)
+        var = snd - stat**2
+        pval = stats.norm.sf(stat, loc=0, scale=(2.0*var/n)**0.5)
         results = {'alpha': self.alpha, 'pvalue': pval, 'test_stat': stat,
                 'h0_rejected': pval < self.alpha}
         return results
@@ -157,7 +158,6 @@ class LinearMMDTest(TwoSampleTest):
         """
         Compute a linear-time estimate of the 2nd moment of h = E_z,z' h(z, z')^2.
         Note that MMD = E_z,z' h(z, z').
-        This is derived by Wittawat. Did not see it proposed anywhere.
         Require O(n). Same trick as used in linear MMD to get O(n).
         """
         lin_2nd = np.mean(h**2) 
@@ -195,13 +195,14 @@ class LinearMMDTest(TwoSampleTest):
         powers = np.zeros(len(list_kernels))
         for ki, kernel in enumerate(list_kernels):
             lin_mmd, snd_moment = LinearMMDTest.two_moments(X, Y, kernel)
-            var_lin_mmd = 2.0*(snd_moment - lin_mmd**2)
+            var_lin_mmd = (snd_moment - lin_mmd**2)
             # test threshold from N(0, var)
-            thresh = stats.norm.isf(alpha, loc=0, scale=(2.0*snd_moment/n)**0.5)
-            power = stats.norm.sf(thresh, loc=lin_mmd, scale=(var_lin_mmd/n)**0.5)
+            thresh = stats.norm.isf(alpha, loc=0, scale=(2.0*var_lin_mmd/n)**0.5)
+            power = stats.norm.sf(thresh, loc=lin_mmd, scale=(2.0*var_lin_mmd/n)**0.5)
             powers[ki] = power
         best_ind = np.argmax(powers)
         return best_ind, powers
+
 
 class GammaMMDKGaussTest(TwoSampleTest):
     """MMD test by fitting a Gamma distribution to the test statistic (MMD^2).
