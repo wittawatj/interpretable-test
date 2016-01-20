@@ -246,12 +246,12 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each sample size 
-reps = 1000
+reps = 300
 #method_job_funcs = [ job_met_opt, job_met_opt10, job_met_gwgrid,
 #         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
-#method_job_funcs = [ job_met_opt10, job_met_gwgrid,
-#         job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
-method_job_funcs = [ job_lin_mmd, job_hotelling]
+method_job_funcs = [ job_met_opt10, job_met_gwgrid,
+        job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+#method_job_funcs = [ job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (ni, r) already exists.

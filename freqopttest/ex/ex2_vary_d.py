@@ -222,11 +222,12 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each dimension
-reps = 1000
+reps = 2000
 #method_job_funcs = [ job_met_opt,  job_met_opt10, job_met_gwgrid,
 #         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
-method_job_funcs = [  job_met_opt10, job_met_gwgrid,
-         job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+#method_job_funcs = [  job_met_opt10, job_met_gwgrid,
+#         job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+method_job_funcs = [  job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (di, r) already exists.
@@ -241,11 +242,13 @@ def get_sample_source_list(prob_label):
     # dimensions to try 
     dimensions = [5] + [100*i for i in range(1, 5+1)] 
     high_dims = [5] + [300*i for i in range(1, 5+1)]
+    low_dims = [2*d for d in range(1, 7+1)]
     prob2ss = { 
             'gmd': [data.SSGaussMeanDiff(d=d, my=1.0) for d in high_dims],
             'gvd': [data.SSGaussVarDiff(d=d) for d in dimensions], 
             # The null is true
-            'sg': [data.SSSameGauss(d=d) for d in high_dims]
+            'sg': [data.SSSameGauss(d=d) for d in high_dims],
+            'sg_low': [data.SSSameGauss(d=d) for d in low_dims]
             }
     if prob_label not in prob2ss:
         raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )
