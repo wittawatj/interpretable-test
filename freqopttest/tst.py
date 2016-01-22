@@ -568,6 +568,7 @@ class MeanEmbeddingTest(TwoSampleTest):
 
     def perform_test(self, tst_data):
         stat = self.compute_stat(tst_data)
+        #print('stat: %.3g'%stat)
         J, d = self.test_locs.shape
         pvalue = stats.chi2.sf(stat, J)
         alpha = self.alpha
@@ -780,26 +781,35 @@ class MeanEmbeddingTest(TwoSampleTest):
         np.random.seed(seed)
 
         X, Y = tst_data.xy()
+        d = X.shape[1]
         # fit a Gaussian to each of X, Y
         mean_x = np.mean(X, 0)
         mean_y = np.mean(Y, 0)
         cov_x = np.cov(X.T)
-        [Dx, Vx] = np.linalg.eig(cov_x)
+        [Dx, Vx] = np.linalg.eig(cov_x + 1e-3*np.eye(d))
+        Dx = np.real(Dx)
+        Vx = np.real(Vx)
         # a hack in case the data are high-dimensional and the covariance matrix 
         # is low rank.
-        Dx[Dx<=0] = 1e-5
+        Dx[Dx<=0] = 1e-2
 
         # shrink the covariance so that the drawn samples will not be so 
         # far away from the data
         eig_pow = 0.9 # 1.0 = not shrink
-        reduced_cov_x = Vx.dot(np.diag(Dx**eig_pow)).dot(Vx.T)
+        reduced_cov_x = Vx.dot(np.diag(Dx**eig_pow)).dot(Vx.T) + 1e-3*np.eye(d)
         cov_y = np.cov(Y.T)
-        [Dy, Vy] = np.linalg.eig(cov_y)
-        Dy[Dy<=0] = 1e-5
-        reduced_cov_y = Vy.dot(np.diag(Dy**eig_pow).dot(Vy.T))
+        [Dy, Vy] = np.linalg.eig(cov_y + 1e-3*np.eye(d))
+        Vy = np.real(Vy)
+        Dy = np.real(Dy)
+        Dy[Dy<=0] = 1e-2
+        reduced_cov_y = Vy.dot(np.diag(Dy**eig_pow).dot(Vy.T)) + 1e-3*np.eye(d)
         # integer division
         Jx = n_test_locs/2
         Jy = n_test_locs - Jx
+
+        #from IPython.core.debugger import Tracer
+        #t = Tracer()
+        #t()
         assert Jx+Jy==n_test_locs, 'total test locations is not n_test_locs'
         Tx = np.random.multivariate_normal(mean_x, reduced_cov_x, Jx)
         Ty = np.random.multivariate_normal(mean_y, reduced_cov_y, Jy)
@@ -897,14 +907,19 @@ def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_para
     for wi, gwidth in enumerate(list_gwidth):
         # non-centrality parameter
         try:
-            #import pdb; pdb.set_trace()
+
+            #from IPython.core.debugger import Tracer 
+            #Tracer()()
             lamb = func_nc_param(X, Y, T, gwidth, reg=0)
             if lamb <= 0:
                 # This can happen when Z, Sig are ill-conditioned. 
                 #print('negative lamb: %.3g'%lamb)
                 raise np.linalg.LinAlgError
-            #if np.iscomplex(lamb):
-            #    print('Lambda is complex. lamb: %s'%(str(lamb)))
+            if np.iscomplex(lamb):
+                # complext value can happen if the covariance is ill-conditioned?
+                print('Lambda is complex. Truncate the imag part. lamb: %s'%(str(lamb)))
+                lamb = np.real(lamb)
+
             #print('thresh: %.3g, df: %.3g, nc: %.3g'%(thresh, df, lamb))
             power = stats.ncx2.sf(thresh, df=df, nc=lamb)
             powers[wi] = power
@@ -1019,8 +1034,8 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
     Return (test_locs, gaussian_width, info)
     """
 
-    print 'T0: '
-    print(T0)
+    #print 'T0: '
+    #print(T0)
     X, Y = tst_data.xy()
     nx, d = X.shape
     # initialize Theano variables
