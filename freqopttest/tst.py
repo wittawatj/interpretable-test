@@ -785,12 +785,17 @@ class MeanEmbeddingTest(TwoSampleTest):
         mean_y = np.mean(Y, 0)
         cov_x = np.cov(X.T)
         [Dx, Vx] = np.linalg.eig(cov_x)
+        # a hack in case the data are high-dimensional and the covariance matrix 
+        # is low rank.
+        Dx[Dx<=0] = 1e-5
+
         # shrink the covariance so that the drawn samples will not be so 
         # far away from the data
         eig_pow = 0.9 # 1.0 = not shrink
         reduced_cov_x = Vx.dot(np.diag(Dx**eig_pow)).dot(Vx.T)
         cov_y = np.cov(Y.T)
         [Dy, Vy] = np.linalg.eig(cov_y)
+        Dy[Dy<=0] = 1e-5
         reduced_cov_y = Vy.dot(np.diag(Dy**eig_pow).dot(Vy.T))
         # integer division
         Jx = n_test_locs/2
@@ -898,6 +903,8 @@ def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_para
                 # This can happen when Z, Sig are ill-conditioned. 
                 #print('negative lamb: %.3g'%lamb)
                 raise np.linalg.LinAlgError
+            #if np.iscomplex(lamb):
+            #    print('Lambda is complex. lamb: %s'%(str(lamb)))
             #print('thresh: %.3g, df: %.3g, nc: %.3g'%(thresh, df, lamb))
             power = stats.ncx2.sf(thresh, df=df, nc=lamb)
             powers[wi] = power

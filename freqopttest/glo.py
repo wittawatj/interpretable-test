@@ -19,6 +19,19 @@ def result_folder():
     files"""
     return os.path.join(get_root(), 'result')
 
+def data_folder():
+    """
+    Return the full path to the data folder 
+    """
+    return os.path.join(get_root(), 'data')
+
+def data_file(*relative_path):
+    """
+    Access the file under the data folder. The path is relative to the 
+    data folder
+    """
+    dfolder = data_folder()
+    return os.path.join(dfolder, *relative_path)
 
 def ex_result_folder(ex):
     """Return the full path to the folder containing result files of the specified 
@@ -74,20 +87,20 @@ def ex_file_exists(ex, *relative_path):
     return os.path.isfile(fpath)
 
 
-"""
-For other users, set the config through set_global_config().
+#"""
+#For other users, set the config through set_global_config().
 
- config includes:
- - batch_log_path: full path to the folder used to contain log files for batch 
- processing.
+# config includes:
+# - batch_log_path: full path to the folder used to contain log files for batch 
+# processing.
 
-"""
+#"""
 
-#config = {'batch_log_path': '/nfs/nhome/live/wittawat/'}
+##config = {'batch_log_path': '/nfs/nhome/live/wittawat/'}
 
-def set_global_config(con):
-    global config
-    config = con
+#def set_global_config(con):
+#    global config
+#    config = con
     
 
 
