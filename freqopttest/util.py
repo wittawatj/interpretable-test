@@ -61,3 +61,14 @@ def tr_te_indices(n, tr_proportion, seed=9282 ):
     np.random.set_state(rand_state)
     return (Itr, Ite)
 
+def subsample_ind(n, k, seed=28):
+    """
+    Return a list of indices to choose k out of n without replacement
+    """
+    rand_state = np.random.get_state()
+    np.random.seed(seed)
+
+    ind = np.random.choice(n, k, replace=False)
+    np.random.set_state(rand_state)
+    return ind
+

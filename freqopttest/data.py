@@ -38,6 +38,22 @@ class SampleSource(object):
             # not 2d. Print stats to the console.
             print(data)
 
+class SSResample(SampleSource):
+    """
+    A SampleSource which subsample without replacement from a specified 
+    sample (TSTData).
+    """
+
+    def __init__(self, tst_data):
+        self.tst_data = tst_data
+
+    def dim(self):
+        return self.tst_data.dim()
+
+    def sample(self, n, seed=900):
+        tst_sub = self.tst_data.subsample(n, seed)
+        return tst_sub
+
 
 class SSBlobs(SampleSource):
     """Mixture of 2d Gaussians arranged in a 2d grid. This dataset is used 
@@ -236,6 +252,14 @@ class TSTData(object):
         tr_data = TSTData(X[Itr, :], Y[Itr, :], 'tr_' + label)
         te_data = TSTData(X[Ite, :], Y[Ite, :], 'te_' + label)
         return (tr_data, te_data)
+
+    def subsample(self, n, seed=87):
+        """Subsample without replacement. Return a new TSTData """
+        if n > self.X.shape[0] or n > self.Y.shape[0]:
+            raise ValueError('n should not be larger than sizes of X, Y.')
+        ind_x = util.subsample_ind( self.X.shape[0], n, seed )
+        ind_y = util.subsample_ind( self.Y.shape[0], n, seed )
+        return TSTData(self.X[ind_x, :], self.Y[ind_y, :], self.label)
 
     ### end TSTData class        
 
