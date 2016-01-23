@@ -760,11 +760,19 @@ class MeanEmbeddingTest(TwoSampleTest):
         np.random.seed(seed)
 
         X, Y = tst_data.xy()
+        d = X.shape[1]
         # fit a Gaussian in the middle of X, Y and draw sample to initialize T
         xy = np.vstack((X, Y))
         mean_xy = np.mean(xy, 0)
         cov_xy = np.cov(xy.T)
-        T0 = np.random.multivariate_normal(mean_xy, cov_xy, n_test_locs)
+        [Dxy, Vxy] = np.linalg.eig(cov_xy + 1e-3*np.eye(d))
+        Dxy = np.real(Dxy)
+        Vxy = np.real(Vxy)
+        Dxy[Dxy<=0] = 1e-3
+        eig_pow = 0.9 # 1.0 = not shrink
+        reduced_cov_xy = Vxy.dot(np.diag(Dxy**eig_pow)).dot(Vxy.T) + 1e-3*np.eye(d)
+
+        T0 = np.random.multivariate_normal(mean_xy, reduced_cov_xy, n_test_locs)
         # reset the seed back to the original
         np.random.set_state(rand_state)
         return T0
@@ -791,7 +799,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         Vx = np.real(Vx)
         # a hack in case the data are high-dimensional and the covariance matrix 
         # is low rank.
-        Dx[Dx<=0] = 1e-2
+        Dx[Dx<=0] = 1e-3
 
         # shrink the covariance so that the drawn samples will not be so 
         # far away from the data
@@ -801,7 +809,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         [Dy, Vy] = np.linalg.eig(cov_y + 1e-3*np.eye(d))
         Vy = np.real(Vy)
         Dy = np.real(Dy)
-        Dy[Dy<=0] = 1e-2
+        Dy[Dy<=0] = 1e-3
         reduced_cov_y = Vy.dot(np.diag(Dy**eig_pow).dot(Vy.T)) + 1e-3*np.eye(d)
         # integer division
         Jx = n_test_locs/2
@@ -878,16 +886,22 @@ def generic_nc_parameter(Z, reg=0.0):
     which is the distribution of the test statistic under the H_1 (and H_0).
     The nc parameter is also the test statistic. 
     """
+    #from IPython.core.debugger import Tracer 
+    #Tracer()()
+
     n = Z.shape[0]
     Sig = np.cov(Z.T)
     W = np.mean(Z, 0)
     n_features = len(W)
-    # test statistic
-    try:
-        s = n*np.linalg.solve(Sig + reg*np.eye(Sig.shape[0]), W).dot(W)
-    except np.linalg.LinAlgError:
-        print('LinAlgError. Return -1 as the nc_parameter.')
-        s = -1 
+    if n_features == 1:
+        s = n*(W[0]**2)/(reg+Sig)
+    else:
+        # test statistic
+        try:
+            s = n*np.linalg.solve(Sig + reg*np.eye(Sig.shape[0]), W).dot(W)
+        except np.linalg.LinAlgError:
+            print('LinAlgError. Return -1 as the nc_parameter.')
+            s = -1 
     return s
 
 def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_param):
