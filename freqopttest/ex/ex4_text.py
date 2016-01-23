@@ -1,0 +1,280 @@
+"""
+Experiment on real text data.
+"""
+
+import freqopttest.data as data
+import freqopttest.tst as tst
+import freqopttest.glo as glo
+import freqopttest.util as util 
+import freqopttest.kernel as kernel 
+import exglobal
+try:
+    import cPickle as pickle 
+except:
+    import pickle
+
+# need independent_jobs package 
+# https://github.com/karlnapf/independent-jobs
+# The independent_jobs and freqopttest have to be in the globl search path (.bashrc)
+import independent_jobs as inj
+from independent_jobs.jobs.IndependentJob import IndependentJob
+from independent_jobs.results.SingleResult import SingleResult
+from independent_jobs.aggregators.SingleResultAggregator import SingleResultAggregator
+from independent_jobs.engines.BatchClusterParameters import BatchClusterParameters
+from independent_jobs.engines.SerialComputationEngine import SerialComputationEngine
+from independent_jobs.engines.SlurmComputationEngine import SlurmComputationEngine
+from independent_jobs.tools.Log import logger
+import math
+import numpy as np
+import os
+import sys 
+
+def job_met_opt(sample_source, tr, te, r):
+    """MeanEmbeddingTest with test locations optimzied."""
+    # MeanEmbeddingTest. optimize the test locations
+    met_opt_options = {'n_test_locs': J, 'max_iter': 500, 
+            'locs_step_size': 50.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
+            'tol_fun': 1e-4}
+    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
+    met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
+    met_opt_test  = met_opt.perform_test(te)
+
+    result = {'met_opt': met_opt, 'test_result': met_opt_test}
+    return result
+
+def job_scf_opt(sample_source, tr, te, r):
+    """SmoothCFTest with frequencies optimized."""
+    op = {'n_test_freqs': J, 'max_iter': 500, 'freqs_step_size': 1.0, 
+            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
+    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
+    scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
+    scf_opt_test = scf_opt.perform_test(te)
+    
+    result = {'scf_opt': scf_opt, 'test_result': scf_opt_test}
+    return result
+
+
+def job_lin_mmd(sample_source, tr, te, r):
+    """Linear mmd with grid search to choose the best Gaussian width."""
+    # should be completely deterministic
+
+    # If n is too large, pairwise meddian computation can cause a memory error. 
+    X, Y = tr.xy()
+    Xr = X[:min(X.shape[0], 1000), :]
+    Yr = Y[:min(Y.shape[0], 1000), :]
+    
+    med = util.meddistance(np.vstack((Xr, Yr)) )
+    widths = [ (med*f) for f in 2.0**np.arange(-5, 5, 1)]
+    list_kernels = [kernel.KGauss( w**2 ) for w in widths]
+    # grid search to choose the best Gaussian width
+    besti, powers = tst.LinearMMDTest.grid_search_kernel(tr, list_kernels, alpha)
+    # perform test 
+    best_ker = list_kernels[besti]
+    lin_mmd_test = tst.LinearMMDTest(best_ker, alpha)
+    test_result = lin_mmd_test.perform_test(te)
+    return test_result
+
+def job_hotelling(sample_source, tr, te, r):
+    """Hotelling T-squared test"""
+    # Since text data are high-d, T-test will likely cause a LinAlgError because 
+    # of the singular covariance matrix.
+    try:
+        htest = tst.HotellingT2Test(alpha=alpha)
+        return htest.perform_test(te)
+    except np.linalg.linalg.LinAlgError:
+        result = {'alpha': alpha, 'pvalue': 1.0, 'test_stat': 1e-5,
+                'h0_rejected':  False}
+        return result
+
+# Define our custom Job, which inherits from base class IndependentJob
+class Ex4Job(IndependentJob):
+   
+    def __init__(self, aggregator, sample_source, prob_label, rep, n, job_func):
+        d = sample_source.dim()
+        walltime = 60*59*24 if d*n*tr_proportion/15 >= 8000 else 60*59
+        memory = int(tr_proportion*n*1e-2) + 50
+
+        IndependentJob.__init__(self, aggregator, walltime=walltime,
+                               memory=memory)
+        self.sample_source = sample_source
+        self.prob_label = prob_label
+        self.rep = rep
+        self.n = n
+        self.job_func = job_func
+
+    # we need to define the abstract compute method. It has to return an instance
+    # of JobResult base class
+    def compute(self):
+        
+        sample_source = self.sample_source 
+        r = self.rep
+        d = sample_source.dim()
+        job_func = self.job_func
+        logger.info("computing. %s. r=%d "%(job_func.__name__, r ))
+
+        tst_data = sample_source.sample(self.n, seed=r)
+        tr, te = tst_data.split_tr_te(tr_proportion=tr_proportion, seed=r+20 )
+        prob_label = self.prob_label
+        result = job_func(sample_source, tr, te, r)
+
+        # create ScalarResult instance
+        result = SingleResult(result)
+        # submit the result to my own aggregator
+        self.aggregator.submit_result(result)
+        logger.info("done. ex2: %s, r=%d "%(job_func.__name__, r))
+
+        # save result
+        func_name = job_func.__name__
+        fname = '%s-%s-J%d_r%d_d%d_a%.3f_trp%.2f.p' \
+                %(prob_label, func_name, J, r, d, alpha, tr_proportion)
+        glo.ex_save_result(ex, result, prob_label, fname)
+
+
+# This import is needed so that pickle knows about the class Ex1Job.
+# pickle is used when collecting the results from the submitted jobs.
+from freqopttest.ex.ex4_text import job_met_opt
+from freqopttest.ex.ex4_text import job_scf_opt
+from freqopttest.ex.ex4_text import job_lin_mmd
+from freqopttest.ex.ex4_text import job_hotelling
+from freqopttest.ex.ex4_text import Ex4Job
+
+#--- experimental setting -----
+ex = 4
+
+# number of test locations / test frequencies J
+J = 1
+alpha = 0.01
+tr_proportion = 0.5
+# repetitions 
+reps = 300
+method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
+#method_job_funcs = [ job_lin_mmd, job_hotelling]
+
+# If is_rerun==False, do not rerun the experiment if a result file for the current
+# setting of (ni, r) already exists.
+is_rerun = False
+#---------------------------
+
+label2fname = {'bayes_neuro_d2000_rnoun':'bayes_neuro_np794_nq788_d2000_random_noun.p',
+        'bayes_neuro_d800_rverb': 'bayes_neuro_np794_nq788_d800_random_verb.p',
+        'bayes_neuro_d300_rnoun': 'bayes_neuro_np794_nq788_d300_random_noun.p'}
+
+cache_loaded = {}
+
+def load_nips_TSTData(fname):
+    if fname in cache_loaded:
+        return cache_loaded[fname]
+
+    fpath = glo.data_file(fname)
+    with open(fpath, 'r') as f:
+        loaded = pickle.load(f)
+        cache_loaded[fname] = loaded
+    X = loaded['P']
+    Y = loaded['Q']
+    n_min = min(X.shape[0], Y.shape[0])
+    X = X[:n_min, :]
+    Y = Y[:n_min, :]
+    assert(X.shape[0] == Y.shape[0])
+    return data.TSTData(X, Y), n_min
+
+def get_sample_source(prob_label):
+    """Return a (SampleSource, n) representing the problem"""
+
+    prob2ss = {}
+    for label, fname in label2fname.iteritems():
+        tst_data, n = load_nips_TSTData(fname)
+        prob2ss[label] = data.SSResample(tst_data), n
+
+    if prob_label not in prob2ss:
+        raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )
+    return prob2ss[prob_label]
+
+def main():
+    if len(sys.argv) != 2:
+        print('Usage: %s problem_label'%sys.argv[0])
+        sys.exit(1)
+    prob_label = sys.argv[1]
+    run_dataset(prob_label)
+
+def run_dataset(prob_label):
+    """Run the experiment"""
+    sample_source, n = get_sample_source(prob_label)
+
+    # ///////  submit jobs //////////
+    # create folder name string
+    home = os.path.expanduser("~")
+    foldername = os.path.join(home, "freqopttest_slurm", 'e%d'%ex)
+    logger.info("Setting engine folder to %s" % foldername)
+
+    # create parameter instance that is needed for any batch computation engine
+    logger.info("Creating batch parameter instance")
+    batch_parameters = BatchClusterParameters(
+        foldername=foldername, job_name_base="e%d_"%ex, parameter_prefix="")
+
+    # Use the following line if Slurm queue is not used.
+    #engine = SerialComputationEngine()
+    engine = SlurmComputationEngine(batch_parameters)
+    n_methods = len(method_job_funcs)
+    # repetitions x  #methods
+    aggregators = np.empty((reps, n_methods ), dtype=object)
+    d = sample_source.dim()
+    for r in range(reps):
+        for mi, f in enumerate(method_job_funcs):
+            # name used to save the result
+            func_name = f.__name__
+            fname = '%s-%s-J%d_r%d_n%d_d%d_a%.3f_trp%.2f.p' \
+                %(prob_label, func_name, J, r, n, d, alpha,
+                        tr_proportion)
+            if not is_rerun and glo.ex_file_exists(ex, prob_label, fname):
+                logger.info('%s exists. Load and return.'%fname)
+                test_result = glo.ex_load_result(ex, prob_label, fname)
+
+                sra = SingleResultAggregator()
+                sra.submit_result(SingleResult(test_result))
+                aggregators[r, mi] = sra
+            else:
+                # result not exists or rerun
+                job = Ex4Job(SingleResultAggregator(), sample_source,
+                        prob_label, r, n, f)
+                agg = engine.submit_job(job)
+                aggregators[r, mi] = agg
+
+    # let the engine finish its business
+    logger.info("Wait for all call in engine")
+    engine.wait_for_all()
+
+    # ////// collect the results ///////////
+    logger.info("Collecting results")
+    test_results = np.empty((reps, n_methods), dtype=object)
+    for r in range(reps):
+        for mi, f in enumerate(method_job_funcs):
+            logger.info("Collecting result (%s, r=%d)" % (f.__name__, r ))
+            # let the aggregator finalize things
+            aggregators[r, mi].finalize()
+
+            # aggregators[i].get_final_result() returns a SingleResult instance,
+            # which we need to extract the actual result
+            test_result = aggregators[r, mi].get_final_result().result
+            test_results[r, mi] = test_result
+
+    func_names = [f.__name__ for f in method_job_funcs]
+    func2labels = exglobal.get_func2label_map()
+    method_labels = [func2labels[f] for f in func_names if f in func2labels]
+    # save results 
+    results = {'results': test_results, 'n': n, 'data_fname':label2fname[prob_label],
+            'alpha': alpha, 'J': J, 'sample_source': sample_source, 
+            'tr_proportion': 0.5, 'method_job_funcs': method_job_funcs, 
+            'prob_label': prob_label, 'method_labels': method_labels}
+    
+    # class name 
+    fname = 'ex%d-%s-me%d_J%d_rs%d_nma%d_d%d_a%.3f_trp%.2f.p' \
+        %(ex, prob_label, n_methods, J, reps, n, d, alpha, tr_proportion)
+    glo.ex_save_result(ex, results, fname)
+    logger.info('Saved aggregated results to %s'%fname)
+
+
+if __name__ == '__main__':
+    main()
+
+
+
