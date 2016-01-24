@@ -209,7 +209,7 @@ def run_dataset(prob_label):
 
     # Use the following line if Slurm queue is not used.
     #engine = SerialComputationEngine()
-    engine = SlurmComputationEngine(batch_parameters)
+    engine = SlurmComputationEngine(batch_parameters, do_clean_up=True)
     n_methods = len(method_job_funcs)
     # repetitions x #J x #methods
     aggregators = np.empty((reps, len(Js), n_methods ), dtype=object)

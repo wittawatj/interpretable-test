@@ -39,7 +39,7 @@ def job_met_opt(sample_source, tr, te, r):
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
 
-    result = {'met_opt': met_opt, 'test_result': met_opt_test}
+    result = {'test_method': met_opt, 'test_result': met_opt_test}
     return result
 
 def job_scf_opt(sample_source, tr, te, r):
@@ -50,7 +50,7 @@ def job_scf_opt(sample_source, tr, te, r):
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
     
-    result = {'scf_opt': scf_opt, 'test_result': scf_opt_test}
+    result = {'test_method': scf_opt, 'test_result': scf_opt_test}
     return result
 
 
@@ -72,31 +72,32 @@ def job_lin_mmd(sample_source, tr, te, r):
     best_ker = list_kernels[besti]
     lin_mmd_test = tst.LinearMMDTest(best_ker, alpha)
     test_result = lin_mmd_test.perform_test(te)
-    return test_result
+
+    result = {'test_method': lin_mmd_test, 'test_result': test_result}
+    return result
 
 def job_hotelling(sample_source, tr, te, r):
     """Hotelling T-squared test"""
     # Since text data are high-d, T-test will likely cause a LinAlgError because 
     # of the singular covariance matrix.
+    htest = tst.HotellingT2Test(alpha=alpha)
     try:
-        htest = tst.HotellingT2Test(alpha=alpha)
-        return htest.perform_test(te)
+        test_result = htest.perform_test(te)
     except np.linalg.linalg.LinAlgError:
-        result = {'alpha': alpha, 'pvalue': 1.0, 'test_stat': 1e-5,
+        test_result = {'alpha': alpha, 'pvalue': 1.0, 'test_stat': 1e-5,
                 'h0_rejected':  False}
-        return result
+    result = {'test_method': htest, 'test_result': test_result}
+    return result
 
 # Define our custom Job, which inherits from base class IndependentJob
 class Ex4Job(IndependentJob):
    
-    def __init__(self, aggregator, sample_source, prob_label, rep, n, job_func):
-        d = sample_source.dim()
-        walltime = 60*59*24 if d*n*tr_proportion/15 >= 8000 else 60*59
-        memory = int(tr_proportion*n*1e-2) + 50
+    def __init__(self, aggregator, prob_label, rep, n, job_func):
+        walltime = 60*59*24 
+        memory = int(tr_proportion*n*1e-1) + 50
 
         IndependentJob.__init__(self, aggregator, walltime=walltime,
                                memory=memory)
-        self.sample_source = sample_source
         self.prob_label = prob_label
         self.rep = rep
         self.n = n
@@ -106,8 +107,8 @@ class Ex4Job(IndependentJob):
     # of JobResult base class
     def compute(self):
         
-        sample_source = self.sample_source 
         r = self.rep
+        sample_source, nmax = get_sample_source(self.prob_label)
         d = sample_source.dim()
         job_func = self.job_func
         logger.info("computing. %s. r=%d "%(job_func.__name__, r ))
@@ -213,7 +214,7 @@ def run_dataset(prob_label):
 
     # Use the following line if Slurm queue is not used.
     #engine = SerialComputationEngine()
-    engine = SlurmComputationEngine(batch_parameters)
+    engine = SlurmComputationEngine(batch_parameters, do_clean_up=True)
     n_methods = len(method_job_funcs)
     # repetitions x  #methods
     aggregators = np.empty((reps, n_methods ), dtype=object)
@@ -234,8 +235,7 @@ def run_dataset(prob_label):
                 aggregators[r, mi] = sra
             else:
                 # result not exists or rerun
-                job = Ex4Job(SingleResultAggregator(), sample_source,
-                        prob_label, r, n, f)
+                job = Ex4Job(SingleResultAggregator(), prob_label, r, n, f)
                 agg = engine.submit_job(job)
                 aggregators[r, mi] = agg
 

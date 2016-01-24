@@ -33,6 +33,10 @@ def data_file(*relative_path):
     dfolder = data_folder()
     return os.path.join(dfolder, *relative_path)
 
+def load_data_file(*relative_path):
+    fpath = data_file(*relative_path)
+    return pickle_load(fpath)
+
 def ex_result_folder(ex):
     """Return the full path to the folder containing result files of the specified 
     experiment. 
@@ -72,13 +76,7 @@ def ex_save_result(ex, result, *relative_path):
 def ex_load_result(ex, *relative_path):
     """Load a result identified by the  path from the experiment ex"""
     fpath = ex_result_file(ex, *relative_path)
-    if not os.path.isfile(fpath):
-        raise ValueError('%s does not exist' % fpath)
-
-    with open(fpath, 'r') as f:
-        # expect a dictionary
-        result = pickle.load(f)
-    return result
+    return pickle_load(fpath)
 
 def ex_file_exists(ex, *relative_path):
     """Return true if the result file in under the specified experiment folder
@@ -86,6 +84,14 @@ def ex_file_exists(ex, *relative_path):
     fpath = ex_result_file(ex, *relative_path)
     return os.path.isfile(fpath)
 
+def pickle_load(fpath):
+    if not os.path.isfile(fpath):
+        raise ValueError('%s does not exist' % fpath)
+
+    with open(fpath, 'r') as f:
+        # expect a dictionary
+        result = pickle.load(f)
+    return result
 
 #"""
 #For other users, set the config through set_global_config().
