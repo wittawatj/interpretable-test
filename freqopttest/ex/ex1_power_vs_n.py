@@ -300,7 +300,7 @@ def run_dataset(prob_label):
 
     # Use the following line if Slurm queue is not used.
     #engine = SerialComputationEngine()
-    engine = SlurmComputationEngine(batch_parameters, do_clean_up=True)
+    engine = SlurmComputationEngine(batch_parameters)
     n_methods = len(method_job_funcs)
     # repetitions x len(sample_sizes) x #methods
     aggregators = np.empty((reps, len(sample_sizes), n_methods ), dtype=object)

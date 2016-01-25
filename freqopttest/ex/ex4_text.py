@@ -32,7 +32,7 @@ import sys
 def job_met_opt(sample_source, tr, te, r):
     """MeanEmbeddingTest with test locations optimzied."""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 500, 
+    met_opt_options = {'n_test_locs': J, 'max_iter': 1000, 
             'locs_step_size': 50.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
             'tol_fun': 1e-4}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
@@ -44,7 +44,7 @@ def job_met_opt(sample_source, tr, te, r):
 
 def job_scf_opt(sample_source, tr, te, r):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 500, 'freqs_step_size': 1.0, 
+    op = {'n_test_freqs': J, 'max_iter': 1000, 'freqs_step_size': 1.0, 
             'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
@@ -158,7 +158,10 @@ is_rerun = False
 
 label2fname = {'bayes_neuro_d2000_rnoun':'bayes_neuro_np794_nq788_d2000_random_noun.p',
         'bayes_neuro_d800_rverb': 'bayes_neuro_np794_nq788_d800_random_verb.p',
-        'bayes_neuro_d300_rnoun': 'bayes_neuro_np794_nq788_d300_random_noun.p'}
+        'bayes_neuro_d300_rnoun': 'bayes_neuro_np794_nq788_d300_random_noun.p',
+        'deep_learning_d1000_rnoun': 'deep_learning_np427_nq339_d1000_random_noun.p',
+        'bayes_deep_d1000_rnoun': 'bayes_deep_np846_nq433_d1000_random_noun.p',
+        }
 
 cache_loaded = {}
 
