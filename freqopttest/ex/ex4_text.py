@@ -32,7 +32,7 @@ import sys
 def job_met_opt(sample_source, tr, te, r):
     """MeanEmbeddingTest with test locations optimzied."""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 1000, 
+    met_opt_options = {'n_test_locs': J, 'max_iter': 500, 
             'locs_step_size': 50.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
             'tol_fun': 1e-4}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
@@ -44,7 +44,7 @@ def job_met_opt(sample_source, tr, te, r):
 
 def job_scf_opt(sample_source, tr, te, r):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 1000, 'freqs_step_size': 1.0, 
+    op = {'n_test_freqs': J, 'max_iter': 500, 'freqs_step_size': 1.0, 
             'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
@@ -147,7 +147,7 @@ J = 1
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions 
-reps = 300
+reps = 1000
 method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
 #method_job_funcs = [ job_lin_mmd, job_hotelling]
 
@@ -157,10 +157,15 @@ is_rerun = False
 #---------------------------
 
 label2fname = {'bayes_neuro_d2000_rnoun':'bayes_neuro_np794_nq788_d2000_random_noun.p',
-        'bayes_neuro_d800_rverb': 'bayes_neuro_np794_nq788_d800_random_verb.p',
-        'bayes_neuro_d300_rnoun': 'bayes_neuro_np794_nq788_d300_random_noun.p',
-        'deep_learning_d1000_rnoun': 'deep_learning_np427_nq339_d1000_random_noun.p',
-        'bayes_deep_d1000_rnoun': 'bayes_deep_np846_nq433_d1000_random_noun.p',
+        'bayes_learning_d2000_rnoun': 'bayes_learning_np821_nq276_d2000.p',
+        'bayes_bayes_d2000_rnoun': 'bayes_bayes_np430_nq432_d2000.p',
+        #'bayes_neuro_d800_rverb': 'bayes_neuro_np794_nq788_d800_random_verb.p',
+        #'bayes_neuro_d300_rnoun': 'bayes_neuro_np794_nq788_d300_random_noun.p',
+        #'deep_learning_d1000_rnoun': 'deep_learning_np427_nq339_d1000_random_noun.p',
+        'deep_learning_d2000_rnoun': 'deep_learning_np431_nq299_d2000_random_noun.p',
+        'bayes_deep_d2000_rnoun': 'bayes_deep_np846_nq433_d2000_random_noun.p',
+        #'deep_neuro_d2000_rnoun': 'deep_neuro_np105_nq512_d2000.p',
+        'neuro_learning_d2000_rnoun': 'neuro_learning_np832_nq293_d2000.p',
         }
 
 cache_loaded = {}
@@ -172,13 +177,14 @@ def load_nips_TSTData(fname):
     fpath = glo.data_file(fname)
     with open(fpath, 'r') as f:
         loaded = pickle.load(f)
-        cache_loaded[fname] = loaded
+
     X = loaded['P']
     Y = loaded['Q']
     n_min = min(X.shape[0], Y.shape[0])
     X = X[:n_min, :]
     Y = Y[:n_min, :]
     assert(X.shape[0] == Y.shape[0])
+    cache_loaded[fname] = (loaded, n_min)
     return data.TSTData(X, Y), n_min
 
 def get_sample_source(prob_label):
@@ -226,8 +232,8 @@ def run_dataset(prob_label):
         for mi, f in enumerate(method_job_funcs):
             # name used to save the result
             func_name = f.__name__
-            fname = '%s-%s-J%d_r%d_n%d_d%d_a%.3f_trp%.2f.p' \
-                %(prob_label, func_name, J, r, n, d, alpha,
+            fname = '%s-%s-J%d_r%d_d%d_a%.3f_trp%.2f.p' \
+                %(prob_label, func_name, J, r, d, alpha,
                         tr_proportion)
             if not is_rerun and glo.ex_file_exists(ex, prob_label, fname):
                 logger.info('%s exists. Load and return.'%fname)
