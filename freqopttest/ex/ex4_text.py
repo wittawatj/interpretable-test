@@ -64,7 +64,7 @@ def job_lin_mmd(sample_source, tr, te, r):
     Yr = Y[:min(Y.shape[0], 1000), :]
     
     med = util.meddistance(np.vstack((Xr, Yr)) )
-    widths = [ (med*f) for f in 2.0**np.arange(-5, 5, 1)]
+    widths = [ (med*f) for f in 2.0**np.linspace(-1, 4, 40)]
     list_kernels = [kernel.KGauss( w**2 ) for w in widths]
     # grid search to choose the best Gaussian width
     besti, powers = tst.LinearMMDTest.grid_search_kernel(tr, list_kernels, alpha)
@@ -148,7 +148,8 @@ alpha = 0.01
 tr_proportion = 0.5
 # repetitions 
 reps = 1000
-method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
+#method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
+method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd]
 #method_job_funcs = [ job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current

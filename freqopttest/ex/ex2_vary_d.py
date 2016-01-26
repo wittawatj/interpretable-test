@@ -128,11 +128,11 @@ def job_lin_mmd(sample_source, tr, te, r):
 
     # If n is too large, pairwise meddian computation can cause a memory error. 
     X, Y = tr.xy()
-    Xr = X[:min(X.shape[0], 3000), :]
-    Yr = Y[:min(Y.shape[0], 3000), :]
+    Xr = X[:min(X.shape[0], 1000), :]
+    Yr = Y[:min(Y.shape[0], 1000), :]
     
     med = util.meddistance(np.vstack((Xr, Yr)) )
-    widths = [ (med*f) for f in 2.0**np.arange(-5, 5, 1)]
+    widths = [ (med*f) for f in 2.0**np.linspace(-1, 4, 40)]
     list_kernels = [kernel.KGauss( w**2 ) for w in widths]
     # grid search to choose the best Gaussian width
     besti, powers = tst.LinearMMDTest.grid_search_kernel(tr, list_kernels, alpha)
@@ -222,12 +222,12 @@ J = 5
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each dimension
-reps = 2000
+reps = 300
 #method_job_funcs = [ job_met_opt,  job_met_opt10, job_met_gwgrid,
 #         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
-#method_job_funcs = [  job_met_opt10, job_met_gwgrid,
-#         job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
-method_job_funcs = [  job_lin_mmd, job_hotelling]
+method_job_funcs = [  job_met_opt10, job_met_gwgrid,
+        job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+#method_job_funcs = [  job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (di, r) already exists.

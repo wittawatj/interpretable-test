@@ -199,6 +199,7 @@ class LinearMMDTest(TwoSampleTest):
             # test threshold from N(0, var)
             thresh = stats.norm.isf(alpha, loc=0, scale=(2.0*var_lin_mmd/n)**0.5)
             power = stats.norm.sf(thresh, loc=lin_mmd, scale=(2.0*var_lin_mmd/n)**0.5)
+            #power = lin_mmd/var_lin_mmd
             powers[ki] = power
         best_ind = np.argmax(powers)
         return best_ind, powers
@@ -218,6 +219,7 @@ class GammaMMDKGaussTest(TwoSampleTest):
         """
         self.alpha = alpha 
         self.gwidth2 = gwidth2
+        raise NotImplementedError('GammaMMDKGaussTest is not implemented.')
 
     def perform_test(self, tst_data):
         """perform the two-sample test and return values computed in a dictionary:

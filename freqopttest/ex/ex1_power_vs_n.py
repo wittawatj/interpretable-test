@@ -154,11 +154,11 @@ def job_lin_mmd(prob_label, tr, te, r, ni, n):
 
     # If n is too large, pairwise meddian computation can cause a memory error. 
     X, Y = tr.xy()
-    Xr = X[:min(X.shape[0], 3000), :]
-    Yr = Y[:min(Y.shape[0], 3000), :]
+    Xr = X[:min(X.shape[0], 1000), :]
+    Yr = Y[:min(Y.shape[0], 1000), :]
     
     med = util.meddistance(np.vstack((Xr, Yr)) )
-    widths = [ (med*f) for f in 2.0**np.arange(-5, 5, 1)]
+    widths = [ (med*f) for f in 2.0**np.linspace(-1, 4, 40)]
     list_kernels = [kernel.KGauss( w**2 ) for w in widths]
     # grid search to choose the best Gaussian width
     besti, powers = tst.LinearMMDTest.grid_search_kernel(tr, list_kernels, alpha)
