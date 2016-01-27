@@ -62,7 +62,7 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel,
             plt.plot(test_sizes, mean_pvals[:, i], line_styles[i], label=method_labels[i])
     '''
             
-    ylabel = 'test power' if h1_true else 'type-1 error'
+    ylabel = 'Test power' if h1_true else 'Type-1 error'
     plt.ylabel(ylabel)
     plt.xlabel(xlabel)
     plt.xticks( np.hstack((xvalues) ))
