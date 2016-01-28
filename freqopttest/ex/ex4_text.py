@@ -116,10 +116,10 @@ class Ex4Job(IndependentJob):
         tst_data = sample_source.sample(self.n, seed=r)
         tr, te = tst_data.split_tr_te(tr_proportion=tr_proportion, seed=r+20 )
         prob_label = self.prob_label
-        result = job_func(sample_source, tr, te, r)
+        job_result = job_func(sample_source, tr, te, r)
 
         # create ScalarResult instance
-        result = SingleResult(result)
+        result = SingleResult(job_result)
         # submit the result to my own aggregator
         self.aggregator.submit_result(result)
         logger.info("done. ex2: %s, r=%d "%(job_func.__name__, r))
@@ -128,7 +128,7 @@ class Ex4Job(IndependentJob):
         func_name = job_func.__name__
         fname = '%s-%s-J%d_r%d_d%d_a%.3f_trp%.2f.p' \
                 %(prob_label, func_name, J, r, d, alpha, tr_proportion)
-        glo.ex_save_result(ex, result, prob_label, fname)
+        glo.ex_save_result(ex, job_result, prob_label, fname)
 
 
 # This import is needed so that pickle knows about the class Ex1Job.
@@ -234,14 +234,17 @@ def run_dataset(prob_label):
             # name used to save the result
             func_name = f.__name__
             fname = '%s-%s-J%d_r%d_d%d_a%.3f_trp%.2f.p' \
-                %(prob_label, func_name, J, r, d, alpha,
-                        tr_proportion)
+                %(prob_label, func_name, J, r, d, alpha, tr_proportion)
             if not is_rerun and glo.ex_file_exists(ex, prob_label, fname):
                 logger.info('%s exists. Load and return.'%fname)
                 test_result = glo.ex_load_result(ex, prob_label, fname)
 
                 sra = SingleResultAggregator()
-                sra.submit_result(SingleResult(test_result))
+                if test_result is SingleResult:
+                    sra.submit_result(test_result)
+                else:
+                    sra.submit_result(SingleResult(test_result))
+
                 aggregators[r, mi] = sra
             else:
                 # result not exists or rerun
@@ -265,7 +268,18 @@ def run_dataset(prob_label):
             # aggregators[i].get_final_result() returns a SingleResult instance,
             # which we need to extract the actual result
             test_result = aggregators[r, mi].get_final_result().result
+            if isinstance(test_result, SingleResult):
+                test_result = test_result.result
+            if isinstance(test_result, SingleResult):
+                test_result = test_result.result
+            if isinstance(test_result, SingleResult):
+                test_result = test_result.result
             test_results[r, mi] = test_result
+
+            func_name = f.__name__
+            fname = '%s-%s-J%d_r%d_d%d_a%.3f_trp%.2f.p' \
+                %(prob_label, func_name, J, r, d, alpha, tr_proportion)
+            glo.ex_save_result(ex, test_result, prob_label, fname)
 
     func_names = [f.__name__ for f in method_job_funcs]
     func2labels = exglobal.get_func2label_map()
