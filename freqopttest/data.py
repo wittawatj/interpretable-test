@@ -40,8 +40,8 @@ class SampleSource(object):
 
 class SSResample(SampleSource):
     """
-    A SampleSource which subsample without replacement from a specified 
-    sample (TSTData).
+    A SampleSource which subsamples without replacement from two samples independently 
+    through the specified TSTData.
     """
 
     def __init__(self, tst_data):
@@ -53,6 +53,32 @@ class SSResample(SampleSource):
     def sample(self, n, seed=900):
         tst_sub = self.tst_data.subsample(n, seed)
         return tst_sub
+
+class SSNullResample(SampleSource):
+    """
+    A SampleSource which subsamples without replacement from only one sample.
+    Randomly partition the one sample into two samples. 
+    This is meant to simulate the case where H0: P=Q is true.
+    """
+
+    def __init__(self, X):
+        """
+        X: nxd numpy array
+        """
+        self.X = X
+
+    def dim(self):
+        return self.X.shape[1]
+
+    def sample(self, n, seed=981):
+        if 2*n > self.X.shape[0]:
+            raise ValueError('2*n=%d exceeds the size of X = %d'%(2*n, self.X.shape[0]))
+        ind = util.subsample_ind(self.X.shape[0], 2*n, seed)
+        #print ind
+        x = self.X[ind[:n]]
+        y = self.X[ind[n:]]
+        assert(x.shape[0]==y.shape[0])
+        return TSTData(x, y)
 
 
 class SSBlobs(SampleSource):

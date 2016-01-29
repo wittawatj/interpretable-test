@@ -68,8 +68,10 @@ def copy_flat():
 
 def copy_group():
     size = 48
-    base_flat = 'S_%d'%size
-    dest_base = 'S_%d_group'%size
+    #base_flat = 'crop_%d'%size
+    #dest_base = 'crop_%d_group'%size
+    base_flat = 'S_crop'
+    dest_base = 'S_crop_group'
     copy_by_expression(base_flat, dest_base)
 
 

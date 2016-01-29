@@ -4,6 +4,18 @@ __author__ = 'wittawat'
 
 import numpy as np
 
+def dist_matrix(X, Y):
+    """
+    Construct a pairwise Euclidean distance matrix of size X.shape[0] x Y.shape[0]
+    """
+    sx = np.sum(X**2, 1)
+    sy = np.sum(Y**2, 1)
+    D2 =  sx[:, np.newaxis] - 2.0*X.dot(Y.T) + sy[np.newaxis, :] 
+    # to prevent numerical errors from taking sqrt of negative numbers
+    D2[D2 < 0] = 0
+    D = np.sqrt(D2)
+    return D
+
 
 def meddistance(X, subsample=None):
     """
@@ -19,11 +31,7 @@ def meddistance(X, subsample=None):
     median distance
     """
     if subsample is None:
-        s = np.sum(X**2, 1)
-        D2 =  s[:, np.newaxis] - 2.0*X.dot(X.T) + s[np.newaxis, :] 
-        # to prevent numerical errors from taking sqrt of negative numbers
-        D2[D2 < 0] = 0
-        D = np.sqrt(D2)
+        D = dist_matrix(X, X)
         return np.median(D.flatten())
     else:
         assert subsample > 0

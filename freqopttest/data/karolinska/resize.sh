@@ -1,8 +1,9 @@
 #!/bin/bash 
 
 size="48"
-Dest="S_${size}"
-for f in $(find KDEF_straight -iname "*.jpg"); 
+Src="S_crop"
+Dest="crop_${size}"
+for f in $(find $Src -iname "*.jpg"); 
 do 
     echo "processing $f"
     dest_file=$Dest/$(basename $f)

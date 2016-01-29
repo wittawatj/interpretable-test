@@ -130,11 +130,11 @@ from freqopttest.ex.ex5_face import Ex5Job
 ex = 5
 
 # number of test locations / test frequencies J
-J = 2
+J = 1
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions 
-reps = 50
+reps = 100
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd]
 method_job_funcs = [ job_met_opt]
@@ -148,6 +148,8 @@ is_rerun = False
 label2fname = {
     'S64_HANESU_AFANDI':'S64_HANESU_AFANDI.p',
     'S48_HANESU_AFANDI':'S48_HANESU_AFANDI.p',
+    'crop48_HANESU_AFANDI':'crop48_HANESU_AFANDI.p',
+    'crop48_h0':'crop48_h0.p',
         }
 
 
@@ -170,6 +172,11 @@ def load_nips_TSTData(fname):
 
 def get_sample_source(prob_label):
     """Return a (SampleSource, n) representing the problem"""
+
+    if prob_label == 'crop48_h0':
+        one_sample = glo.load_data_file(label2fname[prob_label])
+        n_max = one_sample.shape[0]/2
+        return data.SSNullResample(one_sample), n_max
 
     prob2ss = {}
     for label, fname in label2fname.iteritems():
