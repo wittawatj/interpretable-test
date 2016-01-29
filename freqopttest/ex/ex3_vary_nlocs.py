@@ -149,13 +149,13 @@ from freqopttest.ex.ex3_vary_nlocs import Ex3Job
 ex = 3
 
 # sample size = n (the number training and test sizes)
-sample_size = 10000
+sample_size = 20000
 
 # number of test locations / test frequencies J
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each dimension
-reps = 200
+reps = 300
 # list of number of test locations/frequencies
 #Js = [5, 10, 15, 20, 25]
 Js = range(2, 7+1)
