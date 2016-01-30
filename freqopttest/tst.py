@@ -492,7 +492,7 @@ class SmoothCFTest(TwoSampleTest):
         # grid search to determine the initial gwidth
         mean_sd = tst_data.mean_std()
         scales = 2.0**np.linspace(-4, 4, 20)
-        list_gwidth = np.hstack( (mean_sd*scales*(d**0.5), 2**np.linspace(-20, 10, 20) ))
+        list_gwidth = np.hstack( (mean_sd*scales*(d**0.5), 2**np.linspace(-7, 7, 20) ))
         list_gwidth.sort()
         besti, powers = SmoothCFTest.grid_search_gwidth(tst_data, T0,
                 list_gwidth, alpha)
@@ -733,7 +733,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         func_z = MeanEmbeddingTest.construct_z_theano
         # Use grid search to initialize the gwidth
         med = util.meddistance(tst_data.stack_xy(), 1000)
-        list_gwidth2 = np.hstack( ( (med**2) *(2.0**np.linspace(-4, 4, 40) ) ) )
+        list_gwidth2 = np.hstack( ( (med**2) *(2.0**np.linspace(-3, 4, 40) ) ) )
         list_gwidth2.sort()
         besti, powers = MeanEmbeddingTest.grid_search_gwidth(tst_data, T0,
                 list_gwidth2, alpha)
