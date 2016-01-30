@@ -35,7 +35,7 @@ def job_met_opt10(sample_source, tr, te, r, J):
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
     met_opt_options = {'n_test_locs': J, 'max_iter': 100, 
-            'locs_step_size': 1.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
+            'locs_step_size': 5.0, 'gwidth_step_size': 0.2, 'seed': r+92856,
             'tol_fun': 1e-4}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
@@ -61,7 +61,7 @@ def job_met_gwgrid(sample_source, tr, te, r, J):
 def job_scf_opt10(sample_source, tr, te, r, J):
     """SmoothCFTest with frequencies optimized."""
     op = {'n_test_freqs': J, 'max_iter': 100, 'freqs_step_size': 1.0, 
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-4}
+            'gwidth_step_size': 0.2, 'seed': r+92856, 'tol_fun': 1e-4}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
@@ -130,8 +130,8 @@ class Ex3Job(IndependentJob):
         # save result
         func_name = job_func.__name__
         J = self.n_locs
-        fname = '%s-%s-J%d_r%d_a%.3f_trp%.2f.p' \
-            %(prob_label, func_name, J, r, alpha, tr_proportion)
+        fname = '%s-%s-J%d_n%d_r%d_a%.3f_trp%.2f.p' \
+            %(prob_label, func_name, J, sample_size, r, alpha, tr_proportion)
         glo.ex_save_result(ex, test_result, prob_label, fname)
 
 
@@ -158,7 +158,7 @@ tr_proportion = 0.5
 reps = 300
 # list of number of test locations/frequencies
 #Js = [5, 10, 15, 20, 25]
-Js = range(2, 7+1)
+Js = range(2, 6+1)
 
 method_job_funcs = [  job_met_opt10, job_met_gwgrid,
          job_scf_opt10, job_scf_gwgrid]
@@ -218,8 +218,8 @@ def run_dataset(prob_label):
             for mi, f in enumerate(method_job_funcs):
                 # name used to save the result
                 func_name = f.__name__
-                fname = '%s-%s-J%d_r%d_a%.3f_trp%.2f.p' \
-                    %(prob_label, func_name, J, r, alpha, tr_proportion)
+                fname = '%s-%s-J%d_n%d_r%d_a%.3f_trp%.2f.p' \
+                    %(prob_label, func_name, J, sample_size, r, alpha, tr_proportion)
                 if not is_rerun and glo.ex_file_exists(ex, prob_label, fname):
                     logger.info('%s exists. Load and return.'%fname)
                     test_result = glo.ex_load_result(ex, prob_label, fname)
@@ -264,8 +264,8 @@ def run_dataset(prob_label):
             'method_labels': method_labels}
     
     # class name 
-    fname = 'ex%d-%s-me%d_rs%d_jmi%d_jma%d_a%.3f_trp%.2f.p' \
-        %(ex, prob_label, n_methods, reps, min(Js), max(Js), alpha, 
+    fname = 'ex%d-%s-me%d_rs%d_n%d_jmi%d_jma%d_a%.3f_trp%.2f.p' \
+        %(ex, prob_label, n_methods, reps, sample_size, min(Js), max(Js), alpha, 
                 tr_proportion)
     glo.ex_save_result(ex, results, fname)
     logger.info('Saved aggregated results to %s'%fname)

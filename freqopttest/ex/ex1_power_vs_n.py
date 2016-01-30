@@ -51,7 +51,7 @@ def job_met_opt10(prob_label, tr, te, r, ni, n):
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
     met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
-            'locs_step_size': 1.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
+            'locs_step_size': 5.0, 'gwidth_step_size': 0.2, 'seed': r+92856,
             'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
@@ -103,8 +103,8 @@ def job_scf_opt(prob_label, tr, te, r, ni, n):
 
 def job_scf_opt10(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 1.0,
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
+    op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 2.0,
+            'gwidth_step_size': 0.2, 'seed': r+92856, 'tol_fun': 1e-3}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
     scf_opt_test = scf_opt.perform_test(te)
