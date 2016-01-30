@@ -733,7 +733,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         func_z = MeanEmbeddingTest.construct_z_theano
         # Use grid search to initialize the gwidth
         med = util.meddistance(tst_data.stack_xy(), 1000)
-        list_gwidth2 = np.hstack( ( (med**2) *(2.0**np.linspace(-5, 5, 40) ) ) )
+        list_gwidth2 = np.hstack( ( (med**2) *(2.0**np.linspace(-4, 4, 40) ) ) )
         list_gwidth2.sort()
         besti, powers = MeanEmbeddingTest.grid_search_gwidth(tst_data, T0,
                 list_gwidth2, alpha)
@@ -1130,6 +1130,10 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
         opt_T = Ts[-1]
         # for some reason, optimization can give a non-numerical result
         opt_gwidth = gams[-1] if util.is_real_num(gams[-1]) else gwidth0
+
+        if np.linalg.norm(opt_T) <= 1e-5:
+            opt_T = T0
+            opt_gwidth = gwidth0
     else:
         # Probably an error occurred in the first iter.
         opt_T = T0

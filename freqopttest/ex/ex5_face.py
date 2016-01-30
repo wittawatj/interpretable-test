@@ -134,10 +134,10 @@ J = 1
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions 
-reps = 100
+reps = 500
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
-#method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd]
-method_job_funcs = [ job_met_opt]
+method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd]
+#method_job_funcs = [ job_met_opt]
 #method_job_funcs = [ job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
@@ -152,41 +152,22 @@ label2fname = {
     'crop48_h0':'crop48_h0.p',
         }
 
-
-def load_nips_TSTData(fname):
-    if fname in cache_loaded:
-        return cache_loaded[fname]
-
-    fpath = glo.data_file(fname)
-    with open(fpath, 'r') as f:
-        loaded = pickle.load(f)
-
-    X = loaded['P']
-    Y = loaded['Q']
-    n_min = min(X.shape[0], Y.shape[0])
-    X = X[:n_min, :]
-    Y = Y[:n_min, :]
-    assert(X.shape[0] == Y.shape[0])
-    cache_loaded[fname] = (loaded, n_min)
-    return data.TSTData(X, Y), n_min
-
 def get_sample_source(prob_label):
     """Return a (SampleSource, n) representing the problem"""
+
+    if prob_label not in label2fname:
+        raise ValueError('Unknown problem label. Need to be one of %s'%str(label2fname.keys()) )
 
     if prob_label == 'crop48_h0':
         one_sample = glo.load_data_file(label2fname[prob_label])
         n_max = one_sample.shape[0]/2
         return data.SSNullResample(one_sample), n_max
 
-    prob2ss = {}
-    for label, fname in label2fname.iteritems():
-        tst_data = glo.load_data_file(fname)
-        n = tst_data.X.shape[0]
-        prob2ss[label] = data.SSResample(tst_data), n
-
-    if prob_label not in prob2ss:
-        raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )
-    return prob2ss[prob_label]
+    fname = label2fname[prob_label]
+    tst_data = glo.load_data_file(fname)
+    n = tst_data.X.shape[0]
+    ss = data.SSResample(tst_data)
+    return ss, n
 
 def main():
     if len(sys.argv) != 2:

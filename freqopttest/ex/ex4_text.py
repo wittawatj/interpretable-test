@@ -32,8 +32,8 @@ import sys
 def job_met_opt(sample_source, tr, te, r):
     """MeanEmbeddingTest with test locations optimzied."""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 500, 
-            'locs_step_size': 50.0, 'gwidth_step_size': 0.1, 'seed': r+92856,
+    met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
+            'locs_step_size': 500.0, 'gwidth_step_size': 0.2, 'seed': r+92856,
             'tol_fun': 1e-4}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
@@ -147,7 +147,7 @@ J = 1
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions 
-reps = 1000
+reps = 500
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
 method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd]
 #method_job_funcs = [ job_lin_mmd, job_hotelling]
@@ -191,14 +191,12 @@ def load_nips_TSTData(fname):
 def get_sample_source(prob_label):
     """Return a (SampleSource, n) representing the problem"""
 
-    prob2ss = {}
-    for label, fname in label2fname.iteritems():
-        tst_data, n = load_nips_TSTData(fname)
-        prob2ss[label] = data.SSResample(tst_data), n
-
-    if prob_label not in prob2ss:
-        raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )
-    return prob2ss[prob_label]
+    if prob_label not in label2fname:
+        raise ValueError('Unknown problem label. Need to be one of %s'%str(label2fname.keys()) )
+    fname = label2fname[prob_label]
+    tst_data, n = load_nips_TSTData(fname)
+    ss = data.SSResample(tst_data)
+    return ss, n
 
 def main():
     if len(sys.argv) != 2:
@@ -224,7 +222,7 @@ def run_dataset(prob_label):
 
     # Use the following line if Slurm queue is not used.
     #engine = SerialComputationEngine()
-    engine = SlurmComputationEngine(batch_parameters, do_clean_up=True)
+    engine = SlurmComputationEngine(batch_parameters)
     n_methods = len(method_job_funcs)
     # repetitions x  #methods
     aggregators = np.empty((reps, n_methods ), dtype=object)
