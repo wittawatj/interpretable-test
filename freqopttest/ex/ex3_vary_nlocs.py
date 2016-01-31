@@ -35,7 +35,7 @@ def job_met_opt10(sample_source, tr, te, r, J):
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
     met_opt_options = {'n_test_locs': J, 'max_iter': 100, 
-            'locs_step_size': 5.0, 'gwidth_step_size': 0.2, 'seed': r+92856,
+            'locs_step_size': 10.0, 'gwidth_step_size': 0.2, 'seed': r+92856,
             'tol_fun': 1e-4}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
@@ -60,7 +60,7 @@ def job_met_gwgrid(sample_source, tr, te, r, J):
 
 def job_scf_opt10(sample_source, tr, te, r, J):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 100, 'freqs_step_size': 1.0, 
+    op = {'n_test_freqs': J, 'max_iter': 100, 'freqs_step_size': 5.0, 
             'gwidth_step_size': 0.2, 'seed': r+92856, 'tol_fun': 1e-4}
     test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
     scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
@@ -79,7 +79,7 @@ def job_scf_gwgrid(sample_source, tr, te, r, J):
     # grid search to determine the initial gwidth
     mean_sd = tr.mean_std()
     scales = 2.0**np.linspace(-4, 4, 20)
-    list_gwidth = np.hstack( (mean_sd*scales*(d**0.5), 2**np.linspace(-20, 10, 20) ))
+    list_gwidth = np.hstack( (mean_sd*scales*(d**0.5), 2**np.linspace(-10, 10, 20) ))
     list_gwidth.sort()
     besti, powers = tst.SmoothCFTest.grid_search_gwidth(tr, T_randn,
             list_gwidth, alpha)
@@ -149,13 +149,13 @@ from freqopttest.ex.ex3_vary_nlocs import Ex3Job
 ex = 3
 
 # sample size = n (the number training and test sizes)
-sample_size = 20000
+sample_size = 10000
 
 # number of test locations / test frequencies J
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each dimension
-reps = 300
+reps = 100
 # list of number of test locations/frequencies
 #Js = [5, 10, 15, 20, 25]
 Js = range(2, 6+1)
