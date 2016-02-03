@@ -32,9 +32,9 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel,
     vf_pval = np.vectorize(f_pval)
     pvals = vf_pval(results['test_results'])
     repeats, _, n_methods = results['test_results'].shape
-    mean_pvals = np.mean(pvals, axis=0)
+    mean_rejs = np.mean(pvals, axis=0)
     #std_pvals = np.std(pvals, axis=0)
-    #std_pvals = np.sqrt(mean_pvals*(1.0-mean_pvals))
+    #std_pvals = np.sqrt(mean_rejs*(1.0-mean_rejs))
 
     xvalues = func_xvalues(results)
 
@@ -48,21 +48,21 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel,
     for i in range(n_methods):    
         te_proportion = 1.0 - results['tr_proportion']
         fmt = line_styles[func_names[i]]
-        #plt.errorbar(ns*te_proportion, mean_pvals[:, i], std_pvals[:, i])
+        #plt.errorbar(ns*te_proportion, mean_rejs[:, i], std_pvals[:, i])
         method_label = method_labels[func_names[i]]
-        plt.plot(xvalues, mean_pvals[:, i], fmt, label=method_label)
+        plt.plot(xvalues, mean_rejs[:, i], fmt, label=method_label)
     '''
     else:
         # h0 is true 
         z = stats.norm.isf( (1-confidence)/2.0)
         for i in range(n_methods):
-            phat = mean_pvals[:, i]
+            phat = mean_rejs[:, i]
             conf_iv = z*(phat*(1-phat)/repeats)**0.5
             #plt.errorbar(test_sizes, phat, conf_iv, fmt=line_styles[i], label=method_labels[i])
-            plt.plot(test_sizes, mean_pvals[:, i], line_styles[i], label=method_labels[i])
+            plt.plot(test_sizes, mean_rejs[:, i], line_styles[i], label=method_labels[i])
     '''
             
-    ylabel = 'Test power' if h1_true else 'Type-1 error'
+    ylabel = 'Test power' if h1_true else 'Type-I error'
     plt.ylabel(ylabel)
     plt.xlabel(xlabel)
     plt.xticks( np.hstack((xvalues) ))
