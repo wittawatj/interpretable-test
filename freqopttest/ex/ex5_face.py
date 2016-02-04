@@ -42,6 +42,24 @@ def job_met_opt(sample_source, tr, te, r):
     result = {'test_method': met_opt, 'test_result': met_opt_test}
     return result
 
+def job_met_gwgrid(sample_source, tr, te, r):
+    """MeanEmbeddingTest. Optimize only the Gaussian width with grid search
+    Fix the test locations."""
+
+    # optimize on the training set
+    T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
+    med = util.meddistance(tr.stack_xy(), 1000)
+    list_gwidth = np.hstack( ( (med**2) *(2.0**np.linspace(-5, 5, 40) ) ) )
+    list_gwidth.sort()
+    besti, powers = tst.MeanEmbeddingTest.grid_search_gwidth(tr, T_randn,
+            list_gwidth, alpha)
+
+    best_width2 = list_gwidth[besti]
+    met_grid = tst.MeanEmbeddingTest(T_randn, best_width2, alpha)
+    test_result = met_grid.perform_test(te)
+    result = {'test_method': met_grid, 'test_result': test_result}
+    return result
+
 def job_scf_opt(sample_source, tr, te, r):
     """SmoothCFTest with frequencies optimized."""
     op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 1.0, 
@@ -53,6 +71,28 @@ def job_scf_opt(sample_source, tr, te, r):
     result = {'test_method': scf_opt, 'test_result': scf_opt_test}
     return result
 
+def job_scf_gwgrid(sample_source, tr, te, r):
+
+    rand_state = np.random.get_state()
+    np.random.seed(r+92856)
+
+    d = tr.dim()
+    T_randn = np.random.randn(J, d)
+    np.random.set_state(rand_state)
+
+    # grid search to determine the initial gwidth
+    mean_sd = tr.mean_std()
+    scales = 2.0**np.linspace(-4, 4, 20)
+    list_gwidth = np.hstack( (mean_sd*scales*(d**0.5), 2**np.linspace(-8, 8, 20) ))
+    list_gwidth.sort()
+    besti, powers = tst.SmoothCFTest.grid_search_gwidth(tr, T_randn,
+            list_gwidth, alpha)
+    # initialize with the best width from the grid search
+    best_width = list_gwidth[besti]
+    scf_gwgrid = tst.SmoothCFTest(T_randn, best_width, alpha)
+    test_result = scf_gwgrid.perform_test(te)
+    result = {'test_method': scf_gwgrid, 'test_result': test_result}
+    return result
 
 def job_lin_mmd(sample_source, tr, te, r):
     """Linear mmd with grid search to choose the best Gaussian width."""
@@ -122,7 +162,9 @@ class Ex5Job(IndependentJob):
 # This import is needed so that pickle knows about the classes
 # pickle is used when collecting the results from the submitted jobs.
 from freqopttest.ex.ex5_face import job_met_opt
+from freqopttest.ex.ex5_face import job_met_gwgrid
 from freqopttest.ex.ex5_face import job_scf_opt
+from freqopttest.ex.ex5_face import job_scf_gwgrid
 from freqopttest.ex.ex5_face import job_lin_mmd
 from freqopttest.ex.ex5_face import Ex5Job
 
@@ -136,7 +178,9 @@ tr_proportion = 0.5
 # repetitions 
 reps = 500
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
-method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd]
+#method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd]
+method_job_funcs = [ job_met_opt, job_met_gwgrid, job_scf_opt, job_scf_gwgrid,
+        job_lin_mmd]
 #method_job_funcs = [ job_met_opt]
 #method_job_funcs = [ job_lin_mmd, job_hotelling]
 
