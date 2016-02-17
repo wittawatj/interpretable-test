@@ -110,7 +110,8 @@ class LinearMMDTest(TwoSampleTest):
         X, Y = tst_data.xy()
         n = X.shape[0]
         stat, snd = LinearMMDTest.two_moments(X, Y, self.kernel)
-        var = snd - stat**2
+        #var = snd - stat**2
+        var = snd
         pval = stats.norm.sf(stat, loc=0, scale=(2.0*var/n)**0.5)
         results = {'alpha': self.alpha, 'pvalue': pval, 'test_stat': stat,
                 'h0_rejected': pval < self.alpha}
@@ -636,34 +637,6 @@ class MeanEmbeddingTest(TwoSampleTest):
         Z = g-h
         return Z
 
-
-    #@staticmethod
-    #def asym_gauss_kernel(X, test_locs, gamma):
-    #    """Compute a X.shape[0] x test_locs.shape[0] Gaussian kernel matrix where
-    #    the Gaussian width gamma will divide only the data X (not test_locs).
-    #    This is defined as in Chwialkovski, 2015 (NIPS)
-    #    """
-    #    n, d = X.shape
-    #    X = X/gamma
-    #    D2 = np.sum(X**2, 1)[:, np.newaxis] - 2*X.dot(test_locs.T) + np.sum(test_locs**2, 1)
-    #    K = np.exp(-D2)
-    #    raise ValueError('deprecated.')
-    #    return K
-
-    #@staticmethod
-    #def asym_gauss_kernel_theano(X, test_locs, gamma):
-    #    """Asymmetric kernel for the two sample test. Theano version.
-    #    :return kernel matrix X.shape[0] x test_locs.shape[0]
-    #    """
-    #    T = test_locs
-    #    n, d = X.shape
-    #    X = X/gamma
-
-    #    D2 = (X**2).sum(1).reshape((-1, 1)) - 2*X.dot(T.T) + tensor.sum(T**2, 1).reshape((1, -1))
-    #    K = tensor.exp(-D2)
-    #    raise ValueError('deprecated.')
-    #    return K
-
     @staticmethod
     def gauss_kernel(X, test_locs, gwidth2):
         """Compute a X.shape[0] x test_locs.shape[0] Gaussian kernel matrix 
@@ -871,15 +844,6 @@ class MeanEmbeddingTest(TwoSampleTest):
         return ( gamma, ninfo  )
 
 
-    @staticmethod
-    def heu_3gauss_test_locs(J):
-        """Draw J test locations with a heuristic.
-        The heuristic is to fit a Gaussian to each sample, and another Gaussian 
-        in the center of the two. Then, draw test locations from the three Gaussians.
-        """
-        pass
-
-
 # ///////////// global functions ///////////////
 
 def generic_nc_parameter(Z, reg=0.0):
@@ -909,7 +873,7 @@ def generic_nc_parameter(Z, reg=0.0):
 def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_param):
     """
     Linear search for the best Gaussian width in the list that maximizes 
-    the test power, fixing the test locations ot T. 
+    the test power, fixing the test locations to T. 
     The test power is given by the CDF of a non-central Chi-squared 
     distribution.
     return: (best width index, list of test powers)

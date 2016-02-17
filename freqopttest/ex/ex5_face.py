@@ -1,5 +1,5 @@
 """
-Experiment on real text data.
+Experiment on face data.
 """
 
 import freqopttest.data as data
