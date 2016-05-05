@@ -206,6 +206,155 @@ class LinearMMDTest(TwoSampleTest):
         return best_ind, powers
 
 
+class QuadMMDTest(TwoSampleTest):
+    """
+    Quadratic MMD test where the null distribution is computed by permutation.
+    - Use a single U-statistic i.e., remove diagonal from the Kxy matrix.
+    - The code is based on a Matlab code of Arthur Gretton from the paper 
+    A TEST OF RELATIVE SIMILARITY FOR MODEL SELECTION IN GENERATIVE MODELS
+    ICLR 2016
+    """
+
+    def __init__(self, kernel, alpha=0.01):
+        """
+        kernel: an instance of Kernel 
+        """
+        self.kernel = kernel
+        self.alpha = alpha 
+
+    def perform_test(self, tst_data):
+        """perform the two-sample test and return values computed in a dictionary:
+        {alpha: 0.01, pvalue: 0.0002, test_stat: 2.3, h0_rejected: True, ...}
+        tst_data: an instance of TSTData
+        """
+        d = tst_data.dim()
+        alpha = self.alpha
+        raise NotImplementedError('')
+        #results = {'alpha': self.alpha, 'pvalue': pvalue, 'test_stat': chi2_stat,
+        #        'h0_rejected': pvalue < alpha}
+        #return results
+
+    def compute_stat(self, tst_data):
+        """Compute the test statistic: empirical quadratic MMD^2"""
+        X, Y = tst_data.xy()
+
+        if nx != ny:
+            raise ValueError('nx must be the same as ny')
+
+        k = self.kernel
+        mmd2, var = QuadMMDTest.mean_var(X, Y, k, is_var_computed=False)
+        return mmd2
+
+    @staticmethod
+    def mean_var(X, Y, kernel, is_var_computed):
+        """
+        X: nxd numpy array 
+        Y: nxd numpy array
+        kernel: a Kernel object 
+        is_var_computed: if True, compute the variance. If False, return None.
+
+        Code based on Arthur Gretton's Matlab implementation for
+        Bounliphone et. al., 2016.
+
+        return (MMD^2, var[MMD^2]) under H1
+        """
+
+        k = kernel
+        nx = X.shape[0]
+        ny = Y.shape[0]
+
+        Kx = k.eval(X, X)
+        xx = (np.sum(Kx) - np.sum(np.diag(Kx)))/(nx*(nx-1))
+        Ky = k.eval(Y, Y)
+        yy = (np.sum(Ky) - np.sum(np.diag(Ky)))/(ny*(ny-1))
+        Kxy = k.eval(X, Y)
+        # one-sample U-statistic.
+        xy = (np.sum(Kxy) - np.sum(np.diag(Kxy)))/(nx*(ny-1))
+        mmd2 = xx - 2*xy + yy
+
+        if not is_var_computed:
+            return mmd2, None
+
+        # compute the variance
+        Kxd = Kx - np.diag(np.diag(Kx))
+        Kyd = Ky - np.diag(np.diag(Ky))
+        m = nx 
+        n = ny
+        v = np.zeros(11)
+
+        Kxd_sum = np.sum(Kxd)
+        #  varEst = 1/m/(m-1)/(m-2)    * ( sum(Kxd,1)*sum(Kxd,2) - sum(sum(Kxd.^2)))  ...
+        v[0] = 1.0/m/(m-1)/(m-2)*( np.sum(Kxd, 0).dot(np.sum(Kxd, 1) ) - np.sum(Kxd**2) )
+        #           -  (  1/m/(m-1)   *  sum(sum(Kxd))  )^2 ...
+        v[1] = -( 1.0/m/(m-1) * np.sum(Kxd) )**2
+        #           -  2/m/(m-1)/n     *  sum(Kxd,1) * sum(Kxy,2)  ...
+        v[2] = -2.0/m/(m-1)/n * np.sum(Kxd, 0).dot(np.sum(Kxy, 1))
+        #           +  2/m^2/(m-1)/n   * sum(sum(Kxd))*sum(sum(Kxy)) ...
+        v[3] = 2.0/(m**2)/(m-1)/n * np.sum(Kxd)*np.sum(Kxy)
+        #           +  1/(n)/(n-1)/(n-2) * ( sum(Kyd,1)*sum(Kyd,2) - sum(sum(Kyd.^2)))  ...
+        v[4] = 1.0/n/(n-1)/(n-2)*( np.sum(Kyd, 0).dot(np.sum(Kyd, 1)) - np.sum(Kyd**2 ) ) 
+        #           -  ( 1/n/(n-1)   * sum(sum(Kyd))  )^2	...		       
+        v[5] = -( 1.0/n/(n-1) * np.sum(Kyd) )**2
+        #           -  2/n/(n-1)/m     * sum(Kyd,1) * sum(Kxy',2)  ...
+        v[6] = -2.0/n/(n-1)/m * np.sum(Kyd, 0).dot(np.sum(Kxy.T, 1))
+
+        #           +  2/n^2/(n-1)/m  * sum(sum(Kyd))*sum(sum(Kxy)) ...
+        v[7] = 2.0/(n**2)/(n-1)/m * np.sum(Kyd)*np.sum(Kxy)
+        #           +  1/n/(n-1)/m   * ( sum(Kxy',1)*sum(Kxy,2) -sum(sum(Kxy.^2))  ) ...
+        v[8] = 1.0/n/(n-1)/m * ( np.sum(Kxy.T, 0).dot(np.sum(Kxy, 1)) - np.sum(Kxy**2) )
+        #           - 2*(1/n/m        * sum(sum(Kxy))  )^2 ...
+        v[9] = -2.0*( 1.0/n/m*np.sum(Kxy) )**2
+        #           +   1/m/(m-1)/n   *  ( sum(Kxy,1)*sum(Kxy',2) - sum(sum(Kxy.^2)))  ;
+        v[10] = 1.0/m/(m-1)/n * ( np.sum(Kxy, 0).dot(np.sum(Kxy.T, 1)) - np.sum(Kxy**2) )
+
+
+        #%additional low order correction made to some terms compared with ICLR submission
+        #%these corrections are of the same order as the 2nd order term and will
+        #%be unimportant far from the null.
+
+        #   %Eq. 13 p. 11 ICLR 2016. This uses ONLY first order term
+        #   varEst = 4*(m-2)/m/(m-1) *  varEst  ;
+        varEst1st = 4.0*(m-2)/m/(m-1) * np.sum(v)
+
+        Kxyd = Kxy - np.diag(np.diag(Kxy))
+        #   %Eq. 13 p. 11 ICLR 2016: correction by adding 2nd order term
+        #   varEst2nd = 2/m/(m-1) * 1/n/(n-1) * sum(sum( (Kxd + Kyd - Kxyd - Kxyd').^2 ));
+        varEst2nd = 2.0/m/(m-1) * 1/n/(n-1) * np.sum( (Kxd + Kyd - Kxyd - Kxyd.T)**2)
+
+        #   varEst = varEst + varEst2nd;
+        varEst = varEst1st + varEst2nd
+
+        #   %use only 2nd order term if variance estimate negative
+        if varEst<0:
+            varEst =  varEst2nd
+        return mmd2, varEst
+
+
+    @staticmethod
+    def grid_search_kernel(tst_data, list_kernels, alpha):
+        """
+        Return from the list the best kernel that maximizes the test power.
+        The test power of the quadratic mmd under H1 is given by the CDF of a Gaussian. 
+
+        return: (best kernel index, list of test powers)
+        """
+        raise NotImplementedError('')
+        X, Y = tst_data.xy()
+        n = X.shape[0]
+        powers = np.zeros(len(list_kernels))
+        for ki, kernel in enumerate(list_kernels):
+            lin_mmd, snd_moment = LinearMMDTest.two_moments(X, Y, kernel)
+            var_lin_mmd = (snd_moment - lin_mmd**2)
+            # test threshold from N(0, var)
+            thresh = stats.norm.isf(alpha, loc=0, scale=(2.0*var_lin_mmd/n)**0.5)
+            power = stats.norm.sf(thresh, loc=lin_mmd, scale=(2.0*var_lin_mmd/n)**0.5)
+            #power = lin_mmd/var_lin_mmd
+            powers[ki] = power
+        best_ind = np.argmax(powers)
+        return best_ind, powers
+
+
+
 class GammaMMDKGaussTest(TwoSampleTest):
     """MMD test by fitting a Gamma distribution to the test statistic (MMD^2).
     This class is specific to Gaussian kernel.
