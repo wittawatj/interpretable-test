@@ -148,6 +148,23 @@ def job_scf_gwgrid(prob_label, tr, te, r, ni, n):
     scf_gwgrid = tst.SmoothCFTest(T_randn, best_width, alpha)
     return scf_gwgrid.perform_test(te)
 
+def job_quad_mmd(prob_label, tr, te, r, ni, n):
+    """Quadratic mmd with grid search to choose the best Gaussian width."""
+    # If n is too large, pairwise meddian computation can cause a memory error. 
+
+    med = util.meddistance(tr.stack_xy(), 1000)
+    list_gwidth = np.hstack( ( (med**2) *(2.0**np.linspace(-4, 4, 40) ) ) )
+    list_gwidth.sort()
+    list_kernels = [kernel.KGauss(gw2) for gw2 in list_gwidth]
+
+    # grid search to choose the best Gaussian width
+    besti, powers = tst.QuadMMDTest.grid_search_kernel(tr, list_kernels, alpha)
+    # perform test 
+    best_ker = list_kernels[besti]
+    mmd_test = tst.QuadMMDTest(k, n_permute=500, alpha=alpha)
+    test_result = mmd_test.perform_test(te)
+    return test_result
+
 def job_lin_mmd(prob_label, tr, te, r, ni, n):
     """Linear mmd with grid search to choose the best Gaussian width."""
     # should be completely deterministic
@@ -165,7 +182,7 @@ def job_lin_mmd(prob_label, tr, te, r, ni, n):
     # perform test 
     best_ker = list_kernels[besti]
     lin_mmd_test = tst.LinearMMDTest(best_ker, alpha)
-    test_result = lin_mmd_test.perform_test(te)
+    test_result =aistats lin_mmd_test.perform_test(te)
     return test_result
 
 def job_hotelling(prob_label, tr, te, r, ni, n):
@@ -250,7 +267,7 @@ reps = 500
 #method_job_funcs = [ job_met_opt, job_met_opt10, job_met_gwgrid,
 #         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
 method_job_funcs = [ job_met_opt10, job_met_gwgrid,
-        job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+        job_scf_opt10, job_scf_gwgrid, job_quad_mmd, job_lin_mmd, job_hotelling]
 #method_job_funcs = [ job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
