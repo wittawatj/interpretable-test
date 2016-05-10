@@ -182,7 +182,7 @@ def job_lin_mmd(prob_label, tr, te, r, ni, n):
     # perform test 
     best_ker = list_kernels[besti]
     lin_mmd_test = tst.LinearMMDTest(best_ker, alpha)
-    test_result =aistats lin_mmd_test.perform_test(te)
+    test_result = lin_mmd_test.perform_test(te)
     return test_result
 
 def job_hotelling(prob_label, tr, te, r, ni, n):
