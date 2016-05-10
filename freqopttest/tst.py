@@ -215,11 +215,13 @@ class QuadMMDTest(TwoSampleTest):
     ICLR 2016
     """
 
-    def __init__(self, kernel, alpha=0.01):
+    def __init__(self, kernel, n_permute=400, alpha=0.01):
         """
         kernel: an instance of Kernel 
+        n_permute: number of times to do permutation
         """
         self.kernel = kernel
+        self.n_permute = n_permute
         self.alpha = alpha 
 
     def perform_test(self, tst_data):
@@ -229,28 +231,66 @@ class QuadMMDTest(TwoSampleTest):
         """
         d = tst_data.dim()
         alpha = self.alpha
-        raise NotImplementedError('')
-        #results = {'alpha': self.alpha, 'pvalue': pvalue, 'test_stat': chi2_stat,
-        #        'h0_rejected': pvalue < alpha}
-        #return results
+        mmd2_stat = self.compute_stat(tst_data)
+
+        X, Y = tst_data.xy()
+        k = self.kernel
+        repeats = self.n_permute
+        list_mmd2 = QuadMMDTest.permutation_list_mmd2(X, Y, k, repeats)
+        # approximate p-value with the permutations 
+        pvalue = np.mean(list_mmd2 > mmd2_stat)
+
+        results = {'alpha': self.alpha, 'pvalue': pvalue, 'test_stat': mmd2_stat,
+                'h0_rejected': pvalue < alpha, 'list_permuted_mmd2': list_mmd2}
+        return results
 
     def compute_stat(self, tst_data):
         """Compute the test statistic: empirical quadratic MMD^2"""
         X, Y = tst_data.xy()
+        nx = X.shape[0]
+        ny = Y.shape[0]
 
         if nx != ny:
             raise ValueError('nx must be the same as ny')
 
         k = self.kernel
-        mmd2, var = QuadMMDTest.mean_var(X, Y, k, is_var_computed=False)
+        mmd2, var = QuadMMDTest.h1_mean_var(X, Y, k, is_var_computed=False)
         return mmd2
 
+    @staticmethod 
+    def permutation_list_mmd2(X, Y, k, n_permute=400, seed=8273):
+        """
+        Repeatedly mix, permute X,Y and compute MMD^2. This is intended to be
+        used to approximate the null distritubion.
+
+        TODO: This is a naive implementation where the kernel matrix is recomputed 
+        for each permutation. We might be able to improve this if needed.
+        """
+        rand_state = np.random.get_state()
+        np.random.seed(seed)
+
+        XY = np.vstack((X, Y))
+        nxy = XY.shape[0]
+        nx = X.shape[0]
+        ny = Y.shape[0]
+        list_mmd2 = np.zeros(n_permute)
+        for r in range(n_permute):
+            ind = np.random.choice(nxy, nxy, replace=False)
+            # divide into new X, Y
+            Xr = XY[ind[:nx]]
+            Yr = XY[ind[nx:]]
+            mmd2r, var = QuadMMDTest.h1_mean_var(Xr, Yr, k, is_var_computed=False)
+            list_mmd2[r] = mmd2r
+
+        np.random.set_state(rand_state)
+        return list_mmd2
+
     @staticmethod
-    def mean_var(X, Y, kernel, is_var_computed):
+    def h1_mean_var(X, Y, k, is_var_computed):
         """
         X: nxd numpy array 
         Y: nxd numpy array
-        kernel: a Kernel object 
+        k: a Kernel object 
         is_var_computed: if True, compute the variance. If False, return None.
 
         Code based on Arthur Gretton's Matlab implementation for
@@ -259,7 +299,6 @@ class QuadMMDTest(TwoSampleTest):
         return (MMD^2, var[MMD^2]) under H1
         """
 
-        k = kernel
         nx = X.shape[0]
         ny = Y.shape[0]
 
@@ -336,23 +375,31 @@ class QuadMMDTest(TwoSampleTest):
         Return from the list the best kernel that maximizes the test power.
         The test power of the quadratic mmd under H1 is given by the CDF of a Gaussian. 
 
+        In principle, the test threshold depends on the null distribution, which 
+        changes with kernel. Thus, we need to recompute the threshold for each kernel
+        (require permutations), which is expensive. However, asymptotically 
+        the threshold goes to 0. So, for each kernel, the criterion needed is
+        the ratio mean/variance of the MMD^2. (Source: Arthur Gretton)
+        This is an approximate to avoid doing permutations for each kernel 
+        candidate.
+
+        In the returned list of test powers, it is assumed that the test threshold 
+        is zero.
+
         return: (best kernel index, list of test powers)
         """
-        raise NotImplementedError('')
         X, Y = tst_data.xy()
         n = X.shape[0]
         powers = np.zeros(len(list_kernels))
-        for ki, kernel in enumerate(list_kernels):
-            lin_mmd, snd_moment = LinearMMDTest.two_moments(X, Y, kernel)
-            var_lin_mmd = (snd_moment - lin_mmd**2)
-            # test threshold from N(0, var)
-            thresh = stats.norm.isf(alpha, loc=0, scale=(2.0*var_lin_mmd/n)**0.5)
-            power = stats.norm.sf(thresh, loc=lin_mmd, scale=(2.0*var_lin_mmd/n)**0.5)
+        for ki, k in enumerate(list_kernels):
+            mmd2, mmd2_var = QuadMMDTest.h1_mean_var(X, Y, k, is_var_computed=True)
+            # Assume threshold = 0
+            thresh = 0
+            power = stats.norm.sf(thresh, loc=mmd2, scale=mmd2_var**0.5)
             #power = lin_mmd/var_lin_mmd
             powers[ki] = power
         best_ind = np.argmax(powers)
         return best_ind, powers
-
 
 
 class GammaMMDKGaussTest(TwoSampleTest):
