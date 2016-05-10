@@ -163,7 +163,7 @@ class Ex4Job(IndependentJob):
         result = SingleResult(job_result)
         # submit the result to my own aggregator
         self.aggregator.submit_result(result)
-        logger.info("done. ex2: %s, r=%d "%(job_func.__name__, r))
+        logger.info("done. ex4: %s, r=%d "%(job_func.__name__, r))
 
         # save result
         func_name = job_func.__name__

@@ -250,6 +250,7 @@ from freqopttest.ex.ex1_power_vs_n import job_scf_opt
 from freqopttest.ex.ex1_power_vs_n import job_scf_opt10
 from freqopttest.ex.ex1_power_vs_n import job_scf_gwopt
 from freqopttest.ex.ex1_power_vs_n import job_scf_gwgrid
+from freqopttest.ex.ex1_power_vs_n import job_quad_mmd
 from freqopttest.ex.ex1_power_vs_n import job_lin_mmd
 from freqopttest.ex.ex1_power_vs_n import job_hotelling
 from freqopttest.ex.ex1_power_vs_n import Ex1Job
