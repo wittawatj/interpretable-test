@@ -109,7 +109,8 @@ def job_quad_mmd(sample_source, tr, te, r):
     best_ker = list_kernels[besti]
     mmd_test = tst.QuadMMDTest(best_ker, n_permute=500, alpha=alpha)
     test_result = mmd_test.perform_test(te)
-    return test_result
+    result = {'test_method': mmd_test, 'test_result': test_result}
+    return result
 
 
 def job_lin_mmd(sample_source, tr, te, r):
@@ -197,9 +198,9 @@ tr_proportion = 0.5
 # repetitions 
 reps = 500
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
-#method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd]
-method_job_funcs = [ job_met_opt, job_met_gwgrid, job_scf_opt, job_scf_gwgrid,
-        job_quad_mmd, job_lin_mmd]
+method_job_funcs = [ job_met_opt, job_scf_opt, job_quad_mmd, job_lin_mmd]
+#method_job_funcs = [ job_met_opt, job_met_gwgrid, job_scf_opt, job_scf_gwgrid,
+#        job_quad_mmd, job_lin_mmd]
 #method_job_funcs = [ job_met_opt]
 #method_job_funcs = [ job_lin_mmd, job_hotelling]
 
