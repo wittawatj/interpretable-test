@@ -94,6 +94,24 @@ def job_scf_gwgrid(sample_source, tr, te, r):
     result = {'test_method': scf_gwgrid, 'test_result': test_result}
     return result
 
+def job_quad_mmd(sample_source, tr, te, r):
+    """Quadratic mmd with grid search to choose the best Gaussian width."""
+    # If n is too large, pairwise meddian computation can cause a memory error. 
+            
+    med = util.meddistance(tr.stack_xy(), 1000)
+    list_gwidth = np.hstack( ( (med**2) *(2.0**np.linspace(-4, 4, 40) ) ) )
+    list_gwidth.sort()
+    list_kernels = [kernel.KGauss(gw2) for gw2 in list_gwidth]
+
+    # grid search to choose the best Gaussian width
+    besti, powers = tst.QuadMMDTest.grid_search_kernel(tr, list_kernels, alpha)
+    # perform test 
+    best_ker = list_kernels[besti]
+    mmd_test = tst.QuadMMDTest(best_ker, n_permute=500, alpha=alpha)
+    test_result = mmd_test.perform_test(te)
+    return test_result
+
+
 def job_lin_mmd(sample_source, tr, te, r):
     """Linear mmd with grid search to choose the best Gaussian width."""
     # should be completely deterministic
@@ -165,6 +183,7 @@ from freqopttest.ex.ex5_face import job_met_opt
 from freqopttest.ex.ex5_face import job_met_gwgrid
 from freqopttest.ex.ex5_face import job_scf_opt
 from freqopttest.ex.ex5_face import job_scf_gwgrid
+from freqopttest.ex.ex5_face import job_quad_mmd
 from freqopttest.ex.ex5_face import job_lin_mmd
 from freqopttest.ex.ex5_face import Ex5Job
 
@@ -180,7 +199,7 @@ reps = 500
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd]
 method_job_funcs = [ job_met_opt, job_met_gwgrid, job_scf_opt, job_scf_gwgrid,
-        job_lin_mmd]
+        job_quad_mmd, job_lin_mmd]
 #method_job_funcs = [ job_met_opt]
 #method_job_funcs = [ job_lin_mmd, job_hotelling]
 
