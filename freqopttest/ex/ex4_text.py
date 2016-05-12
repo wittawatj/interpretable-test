@@ -9,9 +9,9 @@ import freqopttest.util as util
 import freqopttest.kernel as kernel 
 import exglobal
 try:
-    import cPickle as pickle 
+   import cPickle as pickle 
 except:
-    import pickle
+   import pickle
 
 # need independent_jobs package 
 # https://github.com/karlnapf/independent-jobs
