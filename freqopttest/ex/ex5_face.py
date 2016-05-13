@@ -107,7 +107,7 @@ def job_quad_mmd(sample_source, tr, te, r):
     besti, powers = tst.QuadMMDTest.grid_search_kernel(tr, list_kernels, alpha)
     # perform test 
     best_ker = list_kernels[besti]
-    mmd_test = tst.QuadMMDTest(best_ker, n_permute=500, alpha=alpha)
+    mmd_test = tst.QuadMMDTest(best_ker, n_permute=1000, alpha=alpha)
     test_result = mmd_test.perform_test(te)
     result = {'test_method': mmd_test, 'test_result': test_result}
     return result
