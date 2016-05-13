@@ -215,7 +215,7 @@ class QuadMMDTest(TwoSampleTest):
     ICLR 2016
     """
 
-    def __init__(self, kernel, n_permute=400, alpha=0.01):
+    def __init__(self, kernel, n_permute=400, alpha=0.01, use_1sample_U=True):
         """
         kernel: an instance of Kernel 
         n_permute: number of times to do permutation
@@ -223,6 +223,7 @@ class QuadMMDTest(TwoSampleTest):
         self.kernel = kernel
         self.n_permute = n_permute
         self.alpha = alpha 
+        self.use_1sample_U = use_1sample_U
 
     def perform_test(self, tst_data):
         """perform the two-sample test and return values computed in a dictionary:
@@ -231,7 +232,7 @@ class QuadMMDTest(TwoSampleTest):
         """
         d = tst_data.dim()
         alpha = self.alpha
-        mmd2_stat = self.compute_stat(tst_data)
+        mmd2_stat = self.compute_stat(tst_data, use_1sample_U=self.use_1sample_U)
 
         X, Y = tst_data.xy()
         k = self.kernel
@@ -244,7 +245,7 @@ class QuadMMDTest(TwoSampleTest):
                 'h0_rejected': pvalue < alpha, 'list_permuted_mmd2': list_mmd2}
         return results
 
-    def compute_stat(self, tst_data):
+    def compute_stat(self, tst_data, use_1sample_U=True):
         """Compute the test statistic: empirical quadratic MMD^2"""
         X, Y = tst_data.xy()
         nx = X.shape[0]
@@ -286,12 +287,14 @@ class QuadMMDTest(TwoSampleTest):
         return list_mmd2
 
     @staticmethod
-    def h1_mean_var(X, Y, k, is_var_computed):
+    def h1_mean_var(X, Y, k, is_var_computed, use_1sample_U=True):
         """
         X: nxd numpy array 
         Y: nxd numpy array
         k: a Kernel object 
         is_var_computed: if True, compute the variance. If False, return None.
+        use_1sample_U: if True, use one-sample U statistic for the cross term 
+          i.e., k(X, Y).
 
         Code based on Arthur Gretton's Matlab implementation for
         Bounliphone et. al., 2016.
@@ -308,7 +311,10 @@ class QuadMMDTest(TwoSampleTest):
         yy = (np.sum(Ky) - np.sum(np.diag(Ky)))/(ny*(ny-1))
         Kxy = k.eval(X, Y)
         # one-sample U-statistic.
-        xy = (np.sum(Kxy) - np.sum(np.diag(Kxy)))/(nx*(ny-1))
+        if use_1sample_U:
+            xy = (np.sum(Kxy) - np.sum(np.diag(Kxy)))/(nx*(ny-1))
+        else:
+            xy = np.sum(Kxy)/(nx*ny)
         mmd2 = xx - 2*xy + yy
 
         if not is_var_computed:
