@@ -95,7 +95,8 @@ def job_scf_gwgrid(sample_source, tr, te, r):
     return result
 
 def job_quad_mmd(sample_source, tr, te, r):
-    """Quadratic mmd with grid search to choose the best Gaussian width."""
+    """Quadratic mmd with grid search to choose the best Gaussian width.
+    One-sample U-statistic. This should NOT be used anymore."""
     # If n is too large, pairwise meddian computation can cause a memory error. 
             
     med = util.meddistance(tr.stack_xy(), 1000)
@@ -107,7 +108,8 @@ def job_quad_mmd(sample_source, tr, te, r):
     besti, powers = tst.QuadMMDTest.grid_search_kernel(tr, list_kernels, alpha)
     # perform test 
     best_ker = list_kernels[besti]
-    mmd_test = tst.QuadMMDTest(best_ker, n_permute=1000, alpha=alpha)
+    mmd_test = tst.QuadMMDTest(best_ker, n_permute=1000, alpha=alpha, 
+            use_1sample_U=True)
     test_result = mmd_test.perform_test(te)
     result = {'test_method': mmd_test, 'test_result': test_result}
     return result
@@ -220,7 +222,7 @@ tr_proportion = 0.5
 # repetitions 
 reps = 500
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
-method_job_funcs = [ job_met_opt, job_scf_opt, job_quad_mmd, job_quad_mmd_2U,
+method_job_funcs = [ job_met_opt, job_scf_opt, job_quad_mmd_2U,
         job_lin_mmd]
 #method_job_funcs = [ job_met_opt, job_met_gwgrid, job_scf_opt, job_scf_gwgrid,
 #        job_quad_mmd, job_lin_mmd]

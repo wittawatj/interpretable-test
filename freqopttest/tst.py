@@ -215,7 +215,7 @@ class QuadMMDTest(TwoSampleTest):
     ICLR 2016
     """
 
-    def __init__(self, kernel, n_permute=400, alpha=0.01, use_1sample_U=True):
+    def __init__(self, kernel, n_permute=400, alpha=0.01, use_1sample_U=False):
         """
         kernel: an instance of Kernel 
         n_permute: number of times to do permutation
