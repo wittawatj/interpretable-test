@@ -255,7 +255,8 @@ class QuadMMDTest(TwoSampleTest):
             raise ValueError('nx must be the same as ny')
 
         k = self.kernel
-        mmd2, var = QuadMMDTest.h1_mean_var(X, Y, k, is_var_computed=False)
+        mmd2, var = QuadMMDTest.h1_mean_var(X, Y, k, is_var_computed=False,
+                use_1sample_U=use_1sample_U)
         return mmd2
 
     @staticmethod 
