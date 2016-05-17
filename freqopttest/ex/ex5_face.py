@@ -222,10 +222,10 @@ tr_proportion = 0.5
 # repetitions 
 reps = 500
 #method_job_funcs = [ job_met_opt, job_scf_opt, job_lin_mmd, job_hotelling]
-method_job_funcs = [ job_met_opt, job_scf_opt, job_quad_mmd_2U,
-        job_lin_mmd]
-#method_job_funcs = [ job_met_opt, job_met_gwgrid, job_scf_opt, job_scf_gwgrid,
-#        job_quad_mmd, job_lin_mmd]
+#method_job_funcs = [ job_met_opt, job_scf_opt, job_quad_mmd_2U,
+#        job_lin_mmd]
+method_job_funcs = [ job_met_opt, job_met_gwgrid, job_scf_opt, job_scf_gwgrid,
+       job_quad_mmd_2U, job_lin_mmd]
 #method_job_funcs = [ job_met_opt]
 #method_job_funcs = [ job_lin_mmd, job_hotelling]
 
