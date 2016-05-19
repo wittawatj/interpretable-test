@@ -197,7 +197,8 @@ class Ex1Job(IndependentJob):
     def __init__(self, aggregator, sample_source, prob_label, rep, ni, n, job_func):
         d = sample_source.dim()
         ntr = int(n*tr_proportion)
-        walltime = 60*59*24 if d*ntr/15 >= 8000 else 60*59
+        #walltime = 60*59*24 if d*ntr/15 >= 8000 else 60*59
+        walltime = 60*59*24 
         memory = int(ntr*1e-2) + 50
 
         IndependentJob.__init__(self, aggregator, walltime=walltime,

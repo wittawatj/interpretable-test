@@ -6,6 +6,7 @@ from abc import ABCMeta, abstractmethod
 from freqopttest.data import TSTData
 import matplotlib.pyplot as plt
 import numpy as np
+#from numba import jit
 import freqopttest.util as util
 import freqopttest.kernel as kernel
 
@@ -268,49 +269,72 @@ class QuadMMDTest(TwoSampleTest):
         TODO: This is a naive implementation where the kernel matrix is recomputed 
         for each permutation. We might be able to improve this if needed.
         """
+        return QuadMMDTest.permutation_list_mmd2_gram(X, Y, k, n_permute, seed)
+        #rand_state = np.random.get_state()
+        #np.random.seed(seed)
+
+        #XY = np.vstack((X, Y))
+        #nxy = XY.shape[0]
+        #nx = X.shape[0]
+        #ny = Y.shape[0]
+        #list_mmd2 = np.zeros(n_permute)
+        #for r in range(n_permute):
+        #    ind = np.random.choice(nxy, nxy, replace=False)
+        #    # divide into new X, Y
+        #    Xr = XY[ind[:nx]]
+        #    Yr = XY[ind[nx:]]
+        #    mmd2r, var = QuadMMDTest.h1_mean_var(Xr, Yr, k, is_var_computed=False)
+        #    list_mmd2[r] = mmd2r
+
+        #np.random.set_state(rand_state)
+        #return list_mmd2
+
+    @staticmethod 
+    def permutation_list_mmd2_gram(X, Y, k, n_permute=400, seed=8273):
+        """
+        Repeatedly mix, permute X,Y and compute MMD^2. This is intended to be
+        used to approximate the null distritubion.
+
+        """
+        XY = np.vstack((X, Y))
+        Kxyxy = k.eval(XY, XY)
+
         rand_state = np.random.get_state()
         np.random.seed(seed)
 
-        XY = np.vstack((X, Y))
         nxy = XY.shape[0]
         nx = X.shape[0]
         ny = Y.shape[0]
         list_mmd2 = np.zeros(n_permute)
+
         for r in range(n_permute):
+            #print r
             ind = np.random.choice(nxy, nxy, replace=False)
             # divide into new X, Y
-            Xr = XY[ind[:nx]]
-            Yr = XY[ind[nx:]]
-            mmd2r, var = QuadMMDTest.h1_mean_var(Xr, Yr, k, is_var_computed=False)
+            indx = ind[:nx]
+            #print(indx)
+            indy = ind[nx:]
+            Kx = Kxyxy[np.ix_(indx, indx)]
+            #print(Kx)
+            Ky = Kxyxy[np.ix_(indy, indy)]
+            Kxy = Kxyxy[np.ix_(indx, indy)]
+
+            mmd2r, var = QuadMMDTest.h1_mean_var_gram(Kx, Ky, Kxy, is_var_computed=False)
             list_mmd2[r] = mmd2r
 
         np.random.set_state(rand_state)
         return list_mmd2
 
     @staticmethod
-    def h1_mean_var(X, Y, k, is_var_computed, use_1sample_U=True):
+    def h1_mean_var_gram(Kx, Ky, Kxy, is_var_computed, use_1sample_U=True):
         """
-        X: nxd numpy array 
-        Y: nxd numpy array
-        k: a Kernel object 
-        is_var_computed: if True, compute the variance. If False, return None.
-        use_1sample_U: if True, use one-sample U statistic for the cross term 
-          i.e., k(X, Y).
-
-        Code based on Arthur Gretton's Matlab implementation for
-        Bounliphone et. al., 2016.
-
-        return (MMD^2, var[MMD^2]) under H1
+        Same as h1_mean_var() but takes in Gram matrices directly.
         """
 
-        nx = X.shape[0]
-        ny = Y.shape[0]
-
-        Kx = k.eval(X, X)
+        nx = Kx.shape[0]
+        ny = Ky.shape[0]
         xx = (np.sum(Kx) - np.sum(np.diag(Kx)))/(nx*(nx-1))
-        Ky = k.eval(Y, Y)
         yy = (np.sum(Ky) - np.sum(np.diag(Ky)))/(ny*(ny-1))
-        Kxy = k.eval(X, Y)
         # one-sample U-statistic.
         if use_1sample_U:
             xy = (np.sum(Kxy) - np.sum(np.diag(Kxy)))/(nx*(ny-1))
@@ -329,29 +353,37 @@ class QuadMMDTest(TwoSampleTest):
         v = np.zeros(11)
 
         Kxd_sum = np.sum(Kxd)
+        Kyd_sum = np.sum(Kyd)
+        Kxy_sum = np.sum(Kxy)
+        Kxy2_sum = np.sum(Kxy**2)
+        Kxd0_red = np.sum(Kxd, 1)
+        Kyd0_red = np.sum(Kyd, 1)
+        Kxy1 = np.sum(Kxy, 1)
+        Kyx1 = np.sum(Kxy, 0)
+
         #  varEst = 1/m/(m-1)/(m-2)    * ( sum(Kxd,1)*sum(Kxd,2) - sum(sum(Kxd.^2)))  ...
-        v[0] = 1.0/m/(m-1)/(m-2)*( np.sum(Kxd, 0).dot(np.sum(Kxd, 1) ) - np.sum(Kxd**2) )
+        v[0] = 1.0/m/(m-1)/(m-2)*( Kxd0_red.dot(Kxd0_red ) - np.sum(Kxd**2) )
         #           -  (  1/m/(m-1)   *  sum(sum(Kxd))  )^2 ...
-        v[1] = -( 1.0/m/(m-1) * np.sum(Kxd) )**2
+        v[1] = -( 1.0/m/(m-1) * Kxd_sum )**2
         #           -  2/m/(m-1)/n     *  sum(Kxd,1) * sum(Kxy,2)  ...
-        v[2] = -2.0/m/(m-1)/n * np.sum(Kxd, 0).dot(np.sum(Kxy, 1))
+        v[2] = -2.0/m/(m-1)/n * Kxd0_red.dot(Kxy1)
         #           +  2/m^2/(m-1)/n   * sum(sum(Kxd))*sum(sum(Kxy)) ...
-        v[3] = 2.0/(m**2)/(m-1)/n * np.sum(Kxd)*np.sum(Kxy)
+        v[3] = 2.0/(m**2)/(m-1)/n * Kxd_sum*Kxy_sum
         #           +  1/(n)/(n-1)/(n-2) * ( sum(Kyd,1)*sum(Kyd,2) - sum(sum(Kyd.^2)))  ...
-        v[4] = 1.0/n/(n-1)/(n-2)*( np.sum(Kyd, 0).dot(np.sum(Kyd, 1)) - np.sum(Kyd**2 ) ) 
+        v[4] = 1.0/n/(n-1)/(n-2)*( Kyd0_red.dot(Kyd0_red) - np.sum(Kyd**2 ) ) 
         #           -  ( 1/n/(n-1)   * sum(sum(Kyd))  )^2	...		       
-        v[5] = -( 1.0/n/(n-1) * np.sum(Kyd) )**2
+        v[5] = -( 1.0/n/(n-1) * Kyd_sum )**2
         #           -  2/n/(n-1)/m     * sum(Kyd,1) * sum(Kxy',2)  ...
-        v[6] = -2.0/n/(n-1)/m * np.sum(Kyd, 0).dot(np.sum(Kxy.T, 1))
+        v[6] = -2.0/n/(n-1)/m * Kyd0_red.dot(Kyx1)
 
         #           +  2/n^2/(n-1)/m  * sum(sum(Kyd))*sum(sum(Kxy)) ...
-        v[7] = 2.0/(n**2)/(n-1)/m * np.sum(Kyd)*np.sum(Kxy)
+        v[7] = 2.0/(n**2)/(n-1)/m * Kyd_sum*Kxy_sum
         #           +  1/n/(n-1)/m   * ( sum(Kxy',1)*sum(Kxy,2) -sum(sum(Kxy.^2))  ) ...
-        v[8] = 1.0/n/(n-1)/m * ( np.sum(Kxy.T, 0).dot(np.sum(Kxy, 1)) - np.sum(Kxy**2) )
+        v[8] = 1.0/n/(n-1)/m * ( Kxy1.dot(Kxy1) - Kxy2_sum )
         #           - 2*(1/n/m        * sum(sum(Kxy))  )^2 ...
-        v[9] = -2.0*( 1.0/n/m*np.sum(Kxy) )**2
+        v[9] = -2.0*( 1.0/n/m*Kxy_sum )**2
         #           +   1/m/(m-1)/n   *  ( sum(Kxy,1)*sum(Kxy',2) - sum(sum(Kxy.^2)))  ;
-        v[10] = 1.0/m/(m-1)/n * ( np.sum(Kxy, 0).dot(np.sum(Kxy.T, 1)) - np.sum(Kxy**2) )
+        v[10] = 1.0/m/(m-1)/n * ( Kyx1.dot(Kyx1) - Kxy2_sum )
 
 
         #%additional low order correction made to some terms compared with ICLR submission
@@ -375,6 +407,30 @@ class QuadMMDTest(TwoSampleTest):
             varEst =  varEst2nd
         return mmd2, varEst
 
+    @staticmethod
+    def h1_mean_var(X, Y, k, is_var_computed, use_1sample_U=True):
+        """
+        X: nxd numpy array 
+        Y: nxd numpy array
+        k: a Kernel object 
+        is_var_computed: if True, compute the variance. If False, return None.
+        use_1sample_U: if True, use one-sample U statistic for the cross term 
+          i.e., k(X, Y).
+
+        Code based on Arthur Gretton's Matlab implementation for
+        Bounliphone et. al., 2016.
+
+        return (MMD^2, var[MMD^2]) under H1
+        """
+
+        nx = X.shape[0]
+        ny = Y.shape[0]
+
+        Kx = k.eval(X, X)
+        Ky = k.eval(Y, Y)
+        Kxy = k.eval(X, Y)
+
+        return QuadMMDTest.h1_mean_var_gram(Kx, Ky, Kxy, is_var_computed, use_1sample_U)
 
     @staticmethod
     def grid_search_kernel(tst_data, list_kernels, alpha):
@@ -405,6 +461,8 @@ class QuadMMDTest(TwoSampleTest):
             power = stats.norm.sf(thresh, loc=mmd2, scale=mmd2_var**0.5)
             #power = lin_mmd/var_lin_mmd
             powers[ki] = power
+            print('(%d/%d) %s: mmd2: %.3g, var: %.3g, pow: %.2g'%(ki+1,
+                len(list_kernels), str(k), mmd2, mmd2_var, power))
         best_ind = np.argmax(powers)
         return best_ind, powers
 
