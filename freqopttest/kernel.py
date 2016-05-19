@@ -4,6 +4,7 @@ __author__ = 'wittawat'
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
+import scipy.signal as sig
 
 class Kernel(object):
     """Abstract class for kernels"""
@@ -65,7 +66,7 @@ class KGauss(Kernel):
 
         Return
         ------
-        K : a n1 x n2 gram matrix.
+        K : a n1 x n2 Gram matrix.
         """
         (n1, d1) = X1.shape
         (n2, d2) = X2.shape
@@ -96,6 +97,62 @@ class KGauss(Kernel):
 
     def __str__(self):
         return "KGauss(w2=%.3f)"%self.sigma2
+
+
+
+class KTriangle(Kernel):
+    """
+    A triangular kernel defined on 1D. k(x, y) = B_1((x-y)/width) where B_1 is the 
+    B-spline function of order 1 (i.e., triangular function).
+    """
+
+    def __init__(self, width):
+        assert width > 0, 'width must be > 0'
+        self.width = width
+
+    def eval(self, X1, X2):
+        """
+        Evaluate the triangular kernel on the two 2d numpy arrays.
+
+        Parameters
+        ----------
+        X1 : n1 x 1 numpy array
+        X2 : n2 x 1 numpy array
+
+        Return
+        ------
+        K : a n1 x n2 Gram matrix.
+        """
+        (n1, d1) = X1.shape
+        (n2, d2) = X2.shape
+        assert d1==1, 'd1 must be 1'
+        assert d2==1, 'd2 must be 1'
+        diff = (X1-X2.T)/self.width
+        K = sig.bspline( diff , 1)
+        return K
+
+    def pair_eval(self, X, Y):
+        """
+        Evaluate k(x1, y1), k(x2, y2), ...
+
+        Parameters
+        ----------
+        X, Y : n x 1 numpy array
+
+        Return
+        -------
+        a numpy array with length n
+        """
+        (n1, d1) = X.shape
+        (n2, d2) = Y.shape
+        assert d1==1, 'd1 must be 1'
+        assert d2==1, 'd2 must be 1'
+        diff = (X-Y)/self.width
+        Kvec = sig.bspline( diff , 1)
+        return Kvec
+
+    def __str__(self):
+        return "KTriangle(w=%.3f)"%self.width
 
 
 

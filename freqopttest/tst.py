@@ -745,6 +745,45 @@ class SmoothCFTest(TwoSampleTest):
         return ( gamma, ninfo  )
 
 #-------------------------------------------------
+class METest(TwoSampleTest):
+    """
+    A generic mean embedding (ME) test using a specified kernel. 
+    """
+
+    def __init__(self, test_locs, k, alpha=0.01):
+        """
+        :param test_locs: J x d numpy array of J locations to test the difference
+        :param k: a instance of Kernel
+        """
+        super(METest, self).__init__(alpha)
+        self.test_locs = test_locs
+        self.k = k
+
+    def perform_test(self, tst_data):
+        stat = self.compute_stat(tst_data)
+        #print('stat: %.3g'%stat)
+        J, d = self.test_locs.shape
+        pvalue = stats.chi2.sf(stat, J)
+        alpha = self.alpha
+        results = {'alpha': self.alpha, 'pvalue': pvalue, 'test_stat': stat,
+                'h0_rejected': pvalue < alpha}
+        return results
+
+    def compute_stat(self, tst_data):
+        if self.test_locs is None: 
+            raise ValueError('test_locs must be specified.')
+
+        X, Y = tst_data.xy()
+        test_locs = self.test_locs
+        k = self.k
+        g = k.eval(X, test_locs)
+        h = k.eval(Y, test_locs)
+        Z = g-h
+        s = generic_nc_parameter(Z, reg=0.0)
+        return s
+#-------------------------------------------------
+
+
 class MeanEmbeddingTest(TwoSampleTest):
     """Class for two-sample test using squared difference of mean embeddings. 
     Use Gaussian kernel."""
