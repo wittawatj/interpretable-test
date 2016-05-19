@@ -121,6 +121,22 @@ def job_scf_gwopt(sample_source, tr, te, r):
 def job_scf_gwgrid(sample_source, tr, te, r):
     return ex1.job_scf_gwgrid('', tr, te, r, -1 , -1)
 
+def job_quad_mmd(sample_source, tr, te, r):
+    """Quadratic mmd with grid search to choose the best Gaussian width."""
+    # If n is too large, pairwise meddian computation can cause a memory error. 
+
+    med = util.meddistance(tr.stack_xy(), 1000)
+    list_gwidth = np.hstack( ( (med**2) *(2.0**np.linspace(-4, 4, 30) ) ) )
+    list_gwidth.sort()
+    list_kernels = [kernel.KGauss(gw2) for gw2 in list_gwidth]
+
+    # grid search to choose the best Gaussian width
+    besti, powers = tst.QuadMMDTest.grid_search_kernel(tr, list_kernels, alpha)
+    # perform test 
+    best_ker = list_kernels[besti]
+    mmd_test = tst.QuadMMDTest(best_ker, n_permute=400, alpha=alpha)
+    test_result = mmd_test.perform_test(te)
+    return test_result
 
 def job_lin_mmd(sample_source, tr, te, r):
     """Linear mmd with grid search to choose the best Gaussian width."""
@@ -204,6 +220,7 @@ from freqopttest.ex.ex2_vary_d import job_scf_opt
 from freqopttest.ex.ex2_vary_d import job_scf_opt10
 from freqopttest.ex.ex2_vary_d import job_scf_gwopt
 from freqopttest.ex.ex2_vary_d import job_scf_gwgrid
+from freqopttest.ex.ex2_vary_d import job_quad_mmd
 from freqopttest.ex.ex2_vary_d import job_lin_mmd
 from freqopttest.ex.ex2_vary_d import job_hotelling
 from freqopttest.ex.ex2_vary_d import Ex2Job
@@ -214,8 +231,8 @@ from freqopttest.ex.ex2_vary_d import Ex2Job
 
 ex = 2
 
-# sample size = n (the number training and test sizes)
-sample_size = 20000
+# sample size = n (the number training and test sizes are n/2)
+sample_size = 10000
 
 # number of test locations / test frequencies J
 J = 5
@@ -226,7 +243,7 @@ reps = 500
 #method_job_funcs = [ job_met_opt,  job_met_opt10, job_met_gwgrid,
 #         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
 method_job_funcs = [  job_met_opt10, job_met_gwgrid,
-        job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
+        job_scf_opt10, job_scf_gwgrid, job_quad_mmd, job_lin_mmd, job_hotelling]
 #method_job_funcs = [  job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current

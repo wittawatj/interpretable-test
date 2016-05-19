@@ -153,7 +153,7 @@ def job_quad_mmd(prob_label, tr, te, r, ni, n):
     # If n is too large, pairwise meddian computation can cause a memory error. 
 
     med = util.meddistance(tr.stack_xy(), 1000)
-    list_gwidth = np.hstack( ( (med**2) *(2.0**np.linspace(-4, 4, 40) ) ) )
+    list_gwidth = np.hstack( ( (med**2) *(2.0**np.linspace(-4, 4, 30) ) ) )
     list_gwidth.sort()
     list_kernels = [kernel.KGauss(gw2) for gw2 in list_gwidth]
 
@@ -161,7 +161,7 @@ def job_quad_mmd(prob_label, tr, te, r, ni, n):
     besti, powers = tst.QuadMMDTest.grid_search_kernel(tr, list_kernels, alpha)
     # perform test 
     best_ker = list_kernels[besti]
-    mmd_test = tst.QuadMMDTest(best_ker, n_permute=500, alpha=alpha)
+    mmd_test = tst.QuadMMDTest(best_ker, n_permute=400, alpha=alpha)
     test_result = mmd_test.perform_test(te)
     return test_result
 

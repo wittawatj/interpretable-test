@@ -14,7 +14,7 @@ def get_func2label_map():
     labels = ['ME-full', 'ME-opt-0.5', 'ME-full', 'ME-gw-opt', 
             'ME-grid',
             'SCF-full', 'SCF-full', 'SCF-gw-opt', 'SCF-grid',
-            'MMD', 'MMD-2U', 'MMD-lin', '$T^2$']
+            'MMD-quad', 'MMD-2U', 'MMD-lin', '$T^2$']
     M = {k:v for (k,v) in zip(func_names, labels)}
     return M
 
@@ -33,6 +33,7 @@ def func_plot_fmt_map():
     M['job_scf_opt10'] = 'r*-'
     M['job_scf_gwgrid'] = 'r*--'
 
+    M['job_quad_mmd'] = 'g-^'
     M['job_lin_mmd'] = 'cD-'
     M['job_hotelling'] = 'yv-'
     return M
