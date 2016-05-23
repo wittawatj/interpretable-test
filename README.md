@@ -1,7 +1,9 @@
 # Interpretable Test 
 
-The goal of this project is to learn a set of features to distinguish two given distributions P and Q, as observed through two samples. The features are chosen so as to maximize the distinguishability of the distributions, by optimizing a lower bound on test power for a statistical test using these features. The result is a parsimonious and interpretable indication
-of how and where two distributions differ locally (when the null hypothesis i.e., P=Q is rejected). This repository contains a Python implementation of the Mean Embeddings (ME) test, and Smooth Characteristic Function (SCF) test with features automatically optimized as described in 
+The goal of this project is to learn a set of features to distinguish two given distributions P and Q, as observed through two samples. This task is formulated as a two-sample test problem. The features are chosen so as to maximize the distinguishability of the distributions, by optimizing a lower bound on test power for a statistical test using these features. The result is a parsimonious and interpretable indication
+of how and where two distributions differ locally (when the null hypothesis i.e., P=Q is rejected). 
+
+This repository contains a Python implementation of the Mean Embeddings (ME) test, and Smooth Characteristic Function (SCF) test in which features are automatically optimized as described in 
 
     Interpretable Distribution Features with Maximum Testing Power
     Wittawat Jitkrittum, Zoltán Szabó, Kacper Chwialkowski, Arthur Gretton
