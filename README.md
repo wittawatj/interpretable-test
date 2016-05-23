@@ -21,7 +21,7 @@ To get started, check [demo_interpretable_test.ipynb](https://github.com/wittawa
 ## Reproduce experimental results
 Each experiment is defined in its own Python file with a name starting with `exXX` where `XX` is a number. All the experiment files are in `freqopttest/ex` folder. Each file is runnable with a command line argument. For example in `ex1_power_vs_n.py`, we aim to check the test power of each testing algorithm as a function of the sample size `n`. The script `ex1_power_vs_n.py` takes a dataset name as its argument. See `run_ex1.sh` which is a standalone Bash script on how to execute  `ex1_power_vs_n.py`.
 
-We used [independent-jobs](https://github.com/karlnapf/independent-jobs) package to parallelize our experiments over a [Slurm](http://slurm.schedmd.com/) cluster. For example, for `ex1_power_vs_n.py`, a job is created for each combination of `(dataset, algorithm, n, trial)`. If you do not use Slurm, you can change the line 
+We used [independent-jobs](https://github.com/karlnapf/independent-jobs) package to parallelize our experiments over a [Slurm](http://slurm.schedmd.com/) cluster (the package is not needed if you just need to use our developed two-sample tests). For example, for `ex1_power_vs_n.py`, a job is created for each combination of `(dataset, algorithm, n, trial)`. If you do not use Slurm, you can change the line 
 
     engine = SlurmComputationEngine(batch_parameters)
 
