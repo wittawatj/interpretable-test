@@ -451,18 +451,21 @@ class QuadMMDTest(TwoSampleTest):
 
         return: (best kernel index, list of test powers)
         """
+        import time
         X, Y = tst_data.xy()
         n = X.shape[0]
         powers = np.zeros(len(list_kernels))
         for ki, k in enumerate(list_kernels):
+            start = time.time()
             mmd2, mmd2_var = QuadMMDTest.h1_mean_var(X, Y, k, is_var_computed=True)
             # Assume threshold = 0
             thresh = 0
             power = stats.norm.sf(thresh, loc=mmd2, scale=mmd2_var**0.5)
             #power = lin_mmd/var_lin_mmd
             powers[ki] = power
-            print('(%d/%d) %s: mmd2: %.3g, var: %.3g, pow: %.2g'%(ki+1,
-                len(list_kernels), str(k), mmd2, mmd2_var, power))
+            end = time.time()
+            print('(%d/%d) %s: mmd2: %.3g, var: %.3g, pow: %.2g, took: %s'%(ki+1,
+                len(list_kernels), str(k), mmd2, mmd2_var, power, end-start))
         best_ind = np.argmax(powers)
         return best_ind, powers
 
@@ -839,6 +842,7 @@ class METest(TwoSampleTest):
         Z = g-h
         s = generic_nc_parameter(Z, reg=0.0)
         return s
+
 #-------------------------------------------------
 
 
@@ -1107,8 +1111,6 @@ class MeanEmbeddingTest(TwoSampleTest):
         """
         Linear search for the best Gaussian width in the list that maximizes 
         the test power, fixing the test locations ot T. 
-        The test power is given by the CDF of a non-central Chi-squared 
-        distribution.
         return: (best width index, list of test powers)
         """
         func_nc_param = MeanEmbeddingTest.compute_nc_parameter

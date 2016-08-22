@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import freqopttest.util as util
 import matplotlib.pyplot as plt
+import scipy.stats as stats
 
 class SampleSource(object):
     """A data source where it is possible to resample. Subclasses may prefix 
@@ -79,6 +80,57 @@ class SSNullResample(SampleSource):
         y = self.X[ind[n:]]
         assert(x.shape[0]==y.shape[0])
         return TSTData(x, y)
+
+
+class SSUnif(SampleSource):
+    """
+    Multivariate (or univariate) uniform distributions for both P, Q 
+    on the specified boundaries
+    """
+
+    def __init__(self, plb, pub, qlb, qub):
+        """
+        plb: a numpy array of lower bounds of p
+        pub: a numpy array of upper bounds of p
+        qlb: a numpy array of lower bounds of q
+        qub: a numpy array of upper bounds of q
+        """
+        convertif = lambda a: np.array(a) if isinstance(a, list) else a 
+        plb, pub, qlb, qub = map(convertif, [plb, pub, qlb, qub])
+        if not np.all([plb.shape[0]==pub.shape[0], pub.shape[0]==qlb.shape[0], 
+                qlb.shape[0]==qub.shape[0]]):
+            raise ValueError('all lower and upper bounds must have the same length')
+
+        if not np.all(pub - plb > 0):
+            raise ValueError('Require upper - lower to be positive. False for p')
+
+        if not np.all(qub - qlb > 0):
+            raise ValueError('Require upper - lower to be positive. False for p')
+
+        self.plb = plb
+        self.pub = pub 
+        self.qlb = qlb 
+        self.qub = qub
+
+    def dim(self):
+        return self.plb.shape[0]
+
+    def sample(self, n, seed):
+        rstate = np.random.get_state()
+        np.random.seed(seed)
+
+        d = self.dim()
+        X = np.zeros((n, d)) 
+        Y = np.zeros((n, d)) 
+
+        pscale = self.pub - self.plb 
+        qscale = self.qub - self.qlb
+        for i in range(d):
+            X[:, i] = stats.uniform.rvs(loc=self.plb[i], scale=pscale[i], size=n)
+            Y[:, i] = stats.uniform.rvs(loc=self.qlb[i], scale=qscale[i], size=n)
+
+        np.random.set_state(rstate)
+        return TSTData(X, Y, label='unif_d%d'%d)
 
 
 class SSBlobs(SampleSource):

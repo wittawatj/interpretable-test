@@ -335,7 +335,7 @@ def run_dataset(prob_label):
     # save results 
     results = {'results': test_results, 'n': n, 'data_fname':label2fname[prob_label],
             'alpha': alpha, 'J': J, 'sample_source': sample_source, 
-            'tr_proportion': 0.5, 'method_job_funcs': method_job_funcs, 
+            'tr_proportion': tr_proportion, 'method_job_funcs': method_job_funcs, 
             'prob_label': prob_label, 'method_labels': method_labels}
     
     # class name 

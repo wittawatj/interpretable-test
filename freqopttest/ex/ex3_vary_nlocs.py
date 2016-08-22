@@ -34,9 +34,9 @@ def job_met_opt10(sample_source, tr, te, r, J):
     Large step size
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 100, 
+    met_opt_options = {'n_test_locs': J, 'max_iter': 50, 
             'locs_step_size': 10.0, 'gwidth_step_size': 0.2, 'seed': r+92856,
-            'tol_fun': 1e-4}
+            'tol_fun': 1e-3}
     test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
     met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
     met_opt_test  = met_opt.perform_test(te)
@@ -94,7 +94,8 @@ class Ex3Job(IndependentJob):
    
     def __init__(self, aggregator, sample_source, prob_label, rep, job_func, n_locs):
         d = sample_source.dim()
-        walltime = 60*59*24 if d*sample_size*tr_proportion/15 >= 8000 else 60*59
+        #walltime = 60*59*24 if d*sample_size*tr_proportion/15 >= 8000 else 60*59
+        walltime = 60*59*24 
         memory = int(tr_proportion*sample_size*1e-2) + 50
 
         IndependentJob.__init__(self, aggregator, walltime=walltime,
@@ -149,7 +150,7 @@ from freqopttest.ex.ex3_vary_nlocs import Ex3Job
 ex = 3
 
 # sample size = n (the number training and test sizes)
-sample_size = 10000
+sample_size = 2000
 
 # number of test locations / test frequencies J
 alpha = 0.01
@@ -158,10 +159,11 @@ tr_proportion = 0.5
 reps = 100
 # list of number of test locations/frequencies
 #Js = [5, 10, 15, 20, 25]
-Js = range(2, 6+1)
+#Js = range(2, 6+1)
+Js = [300, 470, 500]
 
-method_job_funcs = [  job_met_opt10, job_met_gwgrid,
-         job_scf_opt10, job_scf_gwgrid]
+#method_job_funcs = [  job_met_opt10, job_met_gwgrid, job_scf_opt10, job_scf_gwgrid]
+method_job_funcs = [  job_met_opt10]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
 # setting of (di, r) already exists.
@@ -176,6 +178,7 @@ def get_sample_source(prob_label):
     prob2ss = { 
             'SSBlobs': data.SSBlobs(),
             'gmd_d100': data.SSGaussMeanDiff(d=100, my=1.0),
+            'gmd_d2': data.SSGaussMeanDiff(d=2, my=1.0),
             'gvd_d50': data.SSGaussVarDiff(d=50), 
             'gvd_d100': data.SSGaussVarDiff(d=100), 
             # The null is true
@@ -259,7 +262,7 @@ def run_dataset(prob_label):
     # save results 
     results = {'test_results': test_results, 'list_J': Js, 
             'alpha': alpha, 'J': J, 'sample_source': ss, 
-            'tr_proportion': 0.5, 'method_job_funcs': method_job_funcs, 
+            'tr_proportion': tr_proportion, 'method_job_funcs': method_job_funcs, 
             'prob_label': prob_label, 'sample_size': sample_size, 
             'method_labels': method_labels}
     

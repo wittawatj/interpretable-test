@@ -274,9 +274,9 @@ def load_nips_TSTData(fname):
     X = X[:n_min, :]
     Y = Y[:n_min, :]
     assert(X.shape[0] == Y.shape[0])
-    tst_data = data.TSTData(X, Y)
+    tst_data = data.TSTData(X, Y) 
     cache_loaded[fname] = (tst_data, n_min)
-    return tst_data, n_min
+    return tst_data, Y), n_min
 
 def get_sample_source(prob_label):
     """Return a (SampleSource, n) representing the problem"""
@@ -375,7 +375,7 @@ def run_dataset(prob_label):
     # save results 
     results = {'results': test_results, 'n': n, 'data_fname':label2fname[prob_label],
             'alpha': alpha, 'J': J, 'sample_source': sample_source, 
-            'tr_proportion': 0.5, 'method_job_funcs': method_job_funcs, 
+            'tr_proportion': tr_proportion, 'method_job_funcs': method_job_funcs, 
             'prob_label': prob_label, 'method_labels': method_labels}
     
     # class name 

@@ -169,7 +169,8 @@ class Ex2Job(IndependentJob):
    
     def __init__(self, aggregator, sample_source, prob_label, rep, job_func):
         d = sample_source.dim()
-        walltime = 60*59*24 if d*sample_size*tr_proportion/15 >= 8000 else 60*59
+        #walltime = 60*59*24 if d*sample_size*tr_proportion/15 >= 8000 else 60*59
+        walltime = 60*59*24 
         memory = int(tr_proportion*sample_size*1e-2) + 50
 
         IndependentJob.__init__(self, aggregator, walltime=walltime,
@@ -346,7 +347,7 @@ def run_dataset(prob_label):
     # save results 
     results = {'test_results': test_results, 'dimensions': dimensions, 
             'alpha': alpha, 'J': J, 'list_sample_source': list_ss, 
-            'tr_proportion': 0.5, 'method_job_funcs': method_job_funcs, 
+            'tr_proportion': tr_proportion, 'method_job_funcs': method_job_funcs, 
             'prob_label': prob_label, 'sample_size': sample_size, 
             'method_labels': method_labels}
     
