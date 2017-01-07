@@ -28,7 +28,8 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel,
     """
 
     results = glo.ex_load_result(ex, fname)
-    f_pval = lambda cell: cell['h0_rejected']
+    f_pval = lambda job_result: job_result['test_result']['h0_rejected']
+    #f_pval = lambda job_result: job_result['h0_rejected']
     vf_pval = np.vectorize(f_pval)
     pvals = vf_pval(results['test_results'])
     repeats, _, n_methods = results['test_results'].shape
@@ -89,3 +90,46 @@ def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel,
     #plt.grid()
     return results
         
+
+def plot_runtime(ex, fname, func_xvalues, xlabel, func_title=None):
+    results = glo.ex_load_result(ex, fname)
+    value_accessor = lambda job_results: job_results['time_secs']
+    vf_pval = np.vectorize(value_accessor)
+    # results['test_results'] is a dictionary: 
+    # {'test_result': (dict from running perform_test(te) '...':..., }
+    times = vf_pval(results['test_results'])
+    repeats, _, n_methods = results['test_results'].shape
+    time_avg = np.mean(times, axis=0)
+    time_std = np.std(times, axis=0)
+
+    xvalues = func_xvalues(results)
+
+    #ns = np.array(results[xkey])
+    #te_proportion = 1.0 - results['tr_proportion']
+    #test_sizes = ns*te_proportion
+    line_styles = exglo.func_plot_fmt_map()
+    method_labels = exglo.get_func2label_map()
+    
+    func_names = [f.__name__ for f in results['method_job_funcs'] ]
+    for i in range(n_methods):    
+        te_proportion = 1.0 - results['tr_proportion']
+        fmt = line_styles[func_names[i]]
+        #plt.errorbar(ns*te_proportion, mean_rejs[:, i], std_pvals[:, i])
+        method_label = method_labels[func_names[i]]
+        plt.errorbar(xvalues, time_avg[:, i], yerr=time_std[:,i], fmt=fmt,
+                label=method_label)
+            
+    ylabel = 'Time (s)'
+    plt.ylabel(ylabel)
+    plt.xlabel(xlabel)
+    plt.gca().set_yscale('log')
+    plt.xlim([np.min(xvalues), np.max(xvalues)])
+    plt.xticks( xvalues, xvalues)
+    plt.legend(loc='best')
+    title = '%s. %d trials. '%( results['prob_label'],
+            repeats ) if func_title is None else func_title(results)
+    plt.title(title)
+    #plt.grid()
+    return results
+
+

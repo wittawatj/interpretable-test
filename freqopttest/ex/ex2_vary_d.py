@@ -32,51 +32,63 @@ def job_met_opt(sample_source, tr, te, r):
     """MeanEmbeddingTest with test locations optimzied.
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
-            'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r+92856,
-            'tol_fun': 1e-3}
-    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
-    met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
-    met_opt_test  = met_opt.perform_test(te)
-    return met_opt_test
+    with util.ContextTimer() as t:
+        met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
+                'locs_step_size': 0.1, 'gwidth_step_size': 0.1, 'seed': r+92856,
+                'tol_fun': 1e-3}
+        test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
+        met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
+        met_opt_test  = met_opt.perform_test(te)
+    return {
+            #'test_method': met_opt, 
+            'test_result': met_opt_test,
+            'time_secs': t.secs}
 
 def job_met_opt5(sample_source, tr, te, r):
     """MeanEmbeddingTest with test locations optimzied.
     Large step size
     Return results from calling perform_test()"""
-    # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
-            'locs_step_size': 0.5, 'gwidth_step_size': 0.1, 'seed': r+92856,
-            'tol_fun': 1e-3}
-    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
-    met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
-    met_opt_test  = met_opt.perform_test(te)
-    return met_opt_test
+    with util.ContextTimer() as t:
+        # MeanEmbeddingTest. optimize the test locations
+        met_opt_options = {'n_test_locs': J, 'max_iter': 200, 
+                'locs_step_size': 0.5, 'gwidth_step_size': 0.1, 'seed': r+92856,
+                'tol_fun': 1e-3}
+        test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
+        met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
+        met_opt_test  = met_opt.perform_test(te)
+    return {
+            #'test_method': met_opt, 
+            'test_result': met_opt_test,
+            'time_secs': t.secs}
 
 def job_met_opt10(sample_source, tr, te, r):
     """MeanEmbeddingTest with test locations optimzied.
     Large step size
     Return results from calling perform_test()"""
     # MeanEmbeddingTest. optimize the test locations
-    met_opt_options = {'n_test_locs': J, 'max_iter': 100, 
-            'locs_step_size': 10.0, 'gwidth_step_size': 0.2, 'seed': r+92856,
-            'tol_fun': 1e-3}
-    test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
-    met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
-    met_opt_test  = met_opt.perform_test(te)
-    return met_opt_test
+    with util.ContextTimer() as t:
+        met_opt_options = {'n_test_locs': J, 'max_iter': 100, 
+                'locs_step_size': 10.0, 'gwidth_step_size': 0.2, 'seed': r+92856,
+                'tol_fun': 1e-3}
+        test_locs, gwidth, info = tst.MeanEmbeddingTest.optimize_locs_width(tr, alpha, **met_opt_options)
+        met_opt = tst.MeanEmbeddingTest(test_locs, gwidth, alpha)
+        met_opt_test  = met_opt.perform_test(te)
+    return {
+            #'test_method': met_opt, 
+            'test_result': met_opt_test,
+            'time_secs': t.secs}
 
 
 def job_met_gwopt(sample_source, tr, te, r):
     """MeanEmbeddingTest. Optimize only the Gaussian width. 
     Fix the test locations."""
+    raise ValueError('Use job_met_gwgrid instead')
     op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
                  'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
     T_randn = tst.MeanEmbeddingTest.init_locs_2randn(tr, J, seed=r+92856)
     gwidth, info = tst.MeanEmbeddingTest.optimize_gwidth(tr, T_randn, **op_gwidth)
     met_gwopt = tst.MeanEmbeddingTest(T_randn, gwidth, alpha)
-    raise ValueError('Use job_met_gwgrid instead')
     return met_gwopt.perform_test(te)
 
 def job_met_gwgrid(sample_source, tr, te, r):
@@ -86,25 +98,34 @@ def job_met_gwgrid(sample_source, tr, te, r):
 
 def job_scf_opt(sample_source, tr, te, r):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 0.1, 
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
-    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
-    scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
-    scf_opt_test = scf_opt.perform_test(te)
-    return scf_opt_test
+    with util.ContextTimer() as t:
+        op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 0.1, 
+                'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
+        test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
+        scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
+        scf_opt_test = scf_opt.perform_test(te)
+    return {
+            #'test_method': scf_opt, 
+            'test_result': scf_opt_test,
+            'time_secs': t.secs}
 
 def job_scf_opt10(sample_source, tr, te, r):
     """SmoothCFTest with frequencies optimized."""
-    op = {'n_test_freqs': J, 'max_iter': 100, 'freqs_step_size': 1.0, 
-            'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
-    test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
-    scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
-    scf_opt_test = scf_opt.perform_test(te)
-    return scf_opt_test
+    with util.ContextTimer() as t:
+        op = {'n_test_freqs': J, 'max_iter': 100, 'freqs_step_size': 1.0, 
+                'gwidth_step_size': 0.1, 'seed': r+92856, 'tol_fun': 1e-3}
+        test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
+        scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
+        scf_opt_test = scf_opt.perform_test(te)
+    return {
+            #'test_method': scf_opt, 
+            'test_result': scf_opt_test,
+            'time_secs': t.secs}
 
 def job_scf_gwopt(sample_source, tr, te, r):
     """SmoothCFTest. Optimize only the Gaussian width. 
     Fix the test frequencies"""
+    raise ValueError('Use job_scf_gwgrid instead')
     op_gwidth = {'max_iter': 200, 'gwidth_step_size': 0.1,  
                  'batch_proportion': 1.0, 'tol_fun': 1e-3}
     # optimize on the training set
@@ -115,7 +136,6 @@ def job_scf_gwopt(sample_source, tr, te, r):
 
     gwidth, info = tst.SmoothCFTest.optimize_gwidth(tr, T_randn, **op_gwidth)
     scf_gwopt = tst.SmoothCFTest(T_randn, gwidth, alpha)
-    raise ValueError('Use job_scf_gwgrid instead')
     return scf_gwopt.perform_test(te)
 
 def job_scf_gwgrid(sample_source, tr, te, r):
@@ -125,43 +145,55 @@ def job_quad_mmd(sample_source, tr, te, r):
     """Quadratic mmd with grid search to choose the best Gaussian width."""
     # If n is too large, pairwise meddian computation can cause a memory error. 
 
-    med = util.meddistance(tr.stack_xy(), 1000)
-    list_gwidth = np.hstack( ( (med**2) *(2.0**np.linspace(-4, 4, 30) ) ) )
-    list_gwidth.sort()
-    list_kernels = [kernel.KGauss(gw2) for gw2 in list_gwidth]
+    with util.ContextTimer() as t:
+        med = util.meddistance(tr.stack_xy(), 1000)
+        list_gwidth = np.hstack( ( (med**2) *(2.0**np.linspace(-4, 4, 30) ) ) )
+        list_gwidth.sort()
+        list_kernels = [kernel.KGauss(gw2) for gw2 in list_gwidth]
 
-    # grid search to choose the best Gaussian width
-    besti, powers = tst.QuadMMDTest.grid_search_kernel(tr, list_kernels, alpha)
-    # perform test 
-    best_ker = list_kernels[besti]
-    mmd_test = tst.QuadMMDTest(best_ker, n_permute=400, alpha=alpha)
-    test_result = mmd_test.perform_test(te)
-    return test_result
+        # grid search to choose the best Gaussian width
+        besti, powers = tst.QuadMMDTest.grid_search_kernel(tr, list_kernels, alpha)
+        # perform test 
+        best_ker = list_kernels[besti]
+        mmd_test = tst.QuadMMDTest(best_ker, n_permute=400, alpha=alpha)
+        test_result = mmd_test.perform_test(te)
+    return {
+            #'test_method': mmd_test, 
+            'test_result': test_result,
+            'time_secs': t.secs}
 
 def job_lin_mmd(sample_source, tr, te, r):
     """Linear mmd with grid search to choose the best Gaussian width."""
     # should be completely deterministic
 
-    # If n is too large, pairwise meddian computation can cause a memory error. 
-    X, Y = tr.xy()
-    Xr = X[:min(X.shape[0], 1000), :]
-    Yr = Y[:min(Y.shape[0], 1000), :]
-    
-    med = util.meddistance(np.vstack((Xr, Yr)) )
-    widths = [ (med*f) for f in 2.0**np.linspace(-1, 4, 40)]
-    list_kernels = [kernel.KGauss( w**2 ) for w in widths]
-    # grid search to choose the best Gaussian width
-    besti, powers = tst.LinearMMDTest.grid_search_kernel(tr, list_kernels, alpha)
-    # perform test 
-    best_ker = list_kernels[besti]
-    lin_mmd_test = tst.LinearMMDTest(best_ker, alpha)
-    test_result = lin_mmd_test.perform_test(te)
-    return test_result
+    with util.ContextTimer() as t:
+        # If n is too large, pairwise meddian computation can cause a memory error. 
+        X, Y = tr.xy()
+        Xr = X[:min(X.shape[0], 1000), :]
+        Yr = Y[:min(Y.shape[0], 1000), :]
+        
+        med = util.meddistance(np.vstack((Xr, Yr)) )
+        widths = [ (med*f) for f in 2.0**np.linspace(-1, 4, 40)]
+        list_kernels = [kernel.KGauss( w**2 ) for w in widths]
+        # grid search to choose the best Gaussian width
+        besti, powers = tst.LinearMMDTest.grid_search_kernel(tr, list_kernels, alpha)
+        # perform test 
+        best_ker = list_kernels[besti]
+        lin_mmd_test = tst.LinearMMDTest(best_ker, alpha)
+        test_result = lin_mmd_test.perform_test(te)
+    return {
+            #'test_method': lin_mmd_test, 
+            'test_result': test_result,
+            'time_secs': t.secs}
 
 def job_hotelling(sample_source, tr, te, r):
     """Hotelling T-squared test"""
-    htest = tst.HotellingT2Test(alpha=alpha)
-    return htest.perform_test(te)
+    with util.ContextTimer() as t:
+        htest = tst.HotellingT2Test(alpha=alpha)
+        result = htest.perform_test(te)
+    return {'test_method': htest, 
+            'test_result': result,
+            'time_secs': t.secs}
 
 
 # Define our custom Job, which inherits from base class IndependentJob
@@ -204,8 +236,8 @@ class Ex2Job(IndependentJob):
 
         # save result
         func_name = job_func.__name__
-        fname = '%s-%s-J%d_r%d_d%d_a%.3f_trp%.2f.p' \
-                %(prob_label, func_name, J, r, d, alpha, tr_proportion)
+        fname = '%s-%s-J%d_r%d_n%d_d%d_a%.3f_trp%.2f.p' \
+                %(prob_label, func_name, J, r, sample_size, d, alpha, tr_proportion)
         glo.ex_save_result(ex, test_result, prob_label, fname)
 
 
@@ -233,7 +265,7 @@ from freqopttest.ex.ex2_vary_d import Ex2Job
 ex = 2
 
 # sample size = n (the number training and test sizes are n/2)
-sample_size = 10000
+sample_size = 20000
 
 # number of test locations / test frequencies J
 J = 5
@@ -244,7 +276,9 @@ reps = 500
 #method_job_funcs = [ job_met_opt,  job_met_opt10, job_met_gwgrid,
 #         job_scf_opt, job_scf_opt10, job_scf_gwgrid, job_lin_mmd, job_hotelling]
 method_job_funcs = [  job_met_opt10, job_met_gwgrid,
-        job_scf_opt10, job_scf_gwgrid, job_quad_mmd, job_lin_mmd, job_hotelling]
+        job_scf_opt10, job_scf_gwgrid, 
+        #job_quad_mmd, 
+        job_lin_mmd, job_hotelling]
 #method_job_funcs = [  job_lin_mmd, job_hotelling]
 
 # If is_rerun==False, do not rerun the experiment if a result file for the current
@@ -306,8 +340,8 @@ def run_dataset(prob_label):
             for mi, f in enumerate(method_job_funcs):
                 # name used to save the result
                 func_name = f.__name__
-                fname = '%s-%s-J%d_r%d_d%d_a%.3f_trp%.2f.p' \
-                    %(prob_label, func_name, J, r, d, alpha, tr_proportion)
+                fname = '%s-%s-J%d_r%d_n%d_d%d_a%.3f_trp%.2f.p' \
+                    %(prob_label, func_name, J, r, sample_size, d, alpha, tr_proportion)
                 if not is_rerun and glo.ex_file_exists(ex, prob_label, fname):
                     logger.info('%s exists. Load and return.'%fname)
                     test_result = glo.ex_load_result(ex, prob_label, fname)
@@ -352,9 +386,9 @@ def run_dataset(prob_label):
             'method_labels': method_labels}
     
     # class name 
-    fname = 'ex2-%s-me%d_J%d_rs%d_dmi%d_dma%d_a%.3f_trp%.2f.p' \
-        %(prob_label, n_methods, J, reps, min(dimensions), max(dimensions), alpha, 
-                tr_proportion)
+    fname = 'ex2-%s-me%d_J%d_rs%d_n%d_dmi%d_dma%d_a%.3f_trp%.2f.p' \
+        %(prob_label, n_methods, J, reps, sample_size, min(dimensions),
+                max(dimensions), alpha, tr_proportion)
     glo.ex_save_result(ex, results, fname)
     logger.info('Saved aggregated results to %s'%fname)
 

@@ -105,7 +105,7 @@ class SSUnif(SampleSource):
             raise ValueError('Require upper - lower to be positive. False for p')
 
         if not np.all(qub - qlb > 0):
-            raise ValueError('Require upper - lower to be positive. False for p')
+            raise ValueError('Require upper - lower to be positive. False for q')
 
         self.plb = plb
         self.pub = pub 
@@ -131,6 +131,123 @@ class SSUnif(SampleSource):
 
         np.random.set_state(rstate)
         return TSTData(X, Y, label='unif_d%d'%d)
+
+# end of SSUnif
+
+class SSMixUnif1D(SampleSource):
+    """
+    A one-dimensional mixture of uniforms problem.
+    P, Q are mixtures of uniform distributions.
+    """
+
+    def __init__(self, pbs, qbs, pmix=None, qmix=None):
+        """
+        pbs: a 2d numpy array (cx x 2) of lower/upper bounds.
+            pbs[i, 0] and pbs[i, 1] specifies the lower and upper bound 
+            for the ith mixture component of P.
+        qbs: a 2d numpy array (cy x 2) of lower/upper bounds.
+        pmix: The mixture weight vector for P. A numpy array of length cx.
+            Automatically set to uniform weights if unspecified.
+        qmix: The mixture weight vector for Q. A numpy array of length cy.
+        """
+        cx = pbs.shape[0]
+        cy = qbs.shape[0]
+        if pbs.shape[1] != 2:
+            raise ValueError('pbs must have 2 columns')
+        if qbs.shape[1] != 2:
+            raise ValueError('qbs must have 2 columns')
+        if pmix is None:
+            pmix = np.ones(cx)/float(cx)
+        if qmix is None:
+            qmix = np.ones(cy)/float(cy)
+
+        if len(pmix) != cx:
+            raise ValueError('Length of pmix does not match #rows of pbs')
+        if len(qmix) != cy:
+            raise ValueError('Length of qmix does not match #rows of qbs')
+
+        if np.abs(np.sum(pmix) - 1) > 1e-6:
+            raise ValueError('mixture weights pmix has to sum to 1')
+        if np.abs(np.sum(qmix) - 1) > 1e-6:
+            raise ValueError('mixture weights qmix has to sum to 1')
+
+        if not np.all(pbs[:, 1] - pbs[:, 0] > 0):
+            raise ValueError('Require upper - lower to be positive. False for p')
+
+        if not np.all(qbs[:, 1] - qbs[:, 0] > 0):
+            raise ValueError('Require upper - lower to be positive. False for q')
+        self.pbs = pbs
+        self.qbs = qbs
+        self.pmix = pmix
+        self.qmix = qmix
+
+    def dim(self):
+        return 1
+
+    def sample(self, n, seed):
+        with util.NumpySeedContext(seed=seed):
+            X = SSMixUnif1D.draw_mix_uniforms(self.pbs, self.pmix, n, seed)
+            X = X[:, np.newaxis]
+            Y = SSMixUnif1D.draw_mix_uniforms(self.qbs, self.qmix, n, seed+2)
+            Y = Y[:, np.newaxis]
+        return TSTData(X, Y, label='mix_unif1d')
+
+    def density_p(self, x):
+        """
+        x: a one-dimensional array.
+        Return density values in a numpy array at x.
+        """
+        return SSMixUnif1D.density_mix_uniforms(x, self.pbs, self.pmix)
+
+    def density_q(self, y):
+        """
+        y: a one-dimensional array.
+        Return density values in a numpy array at y.
+        """
+        return SSMixUnif1D.density_mix_uniforms(y, self.qbs, self.qmix)
+
+    @staticmethod
+    def density_mix_uniforms(x, pbs, pmix):
+        """
+        Evaluate the density of the mixture of uniforms at the locations in x
+        (a one-dimensional numpy array).
+        """
+        scale = pbs[:, 1] - pbs[:, 0]
+        den = np.zeros(len(x))
+        for i, pi in enumerate(pbs):
+            den += pmix[i]*stats.uniform.pdf(x, loc=pbs[i, 0], scale=scale[i])
+        return den
+
+    @staticmethod
+    def draw_mix_uniforms(pbs, pmix, n, seed):
+        """
+        Draw n samples from a mixture of uniform distributions whose bounds 
+        are specified in pbs, and mixing proportion is specified in pmix.
+
+        Return a one-dimensional numpy array of n samples.
+        """
+        assert pbs.shape[0] == len(pmix)
+        c = len(pmix)
+        sam_list = []
+        scale = pbs[:, 1] - pbs[:, 0]
+        with util.NumpySeedContext(seed=seed):
+            # counts for each mixture component 
+            counts = np.random.multinomial(n, pmix, size=1)
+            # counts is a 2d array
+            counts = counts[0]
+            # For each component, draw from its corresponding uniform
+            # distribution.
+            for i, nc in enumerate(counts):
+                #print i
+                sam_i = stats.uniform.rvs(loc=pbs[i, 0], scale=scale[i], size=nc)
+                #print 'pbs[{0},0]: {1}'.format(i, pbs[i, 0])
+                #print 'sam_i: {0}'.format(sam_i)
+                sam_list.append(sam_i)
+            sample = np.hstack(sam_list)
+            np.random.shuffle(sample)
+        return sample
+
+# end of SSMixUnif1D
 
 
 class SSBlobs(SampleSource):
@@ -162,7 +279,6 @@ class SSBlobs(SampleSource):
         return TSTData(x, y, label='blobs_s%d'%seed)
 
 
-
 def gen_blobs(stretch, angle, blob_distance, num_blobs, num_samples):
     """Generate 2d blobs dataset """
 
@@ -173,6 +289,7 @@ def gen_blobs(stretch, angle, blob_distance, num_blobs, num_samples):
     mean = float(blob_distance * (num_blobs-1)) / 2
     mu = np.random.randint(0, num_blobs,(num_samples, 2))*blob_distance - mean
     return np.random.randn(num_samples,2).dot(mod_matix) + mu
+
 
 class SSSameGauss(SampleSource):
     """Two same standard Gaussians for P, Q. The null hypothesis 

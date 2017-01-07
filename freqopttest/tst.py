@@ -625,7 +625,7 @@ class SmoothCFTest(TwoSampleTest):
 
     #---------------------------------
     @staticmethod
-    def compute_nc_parameter(X, Y, T, gwidth, reg=0.0):
+    def compute_nc_parameter(X, Y, T, gwidth, reg='auto'):
         """
         Compute the non-centrality parameter of the non-central Chi-squared 
         which is the distribution of the test statistic under the H_1 (and H_0).
@@ -840,7 +840,7 @@ class METest(TwoSampleTest):
         g = k.eval(X, test_locs)
         h = k.eval(Y, test_locs)
         Z = g-h
-        s = generic_nc_parameter(Z, reg=0.0)
+        s = generic_nc_parameter(Z, reg='auto')
         return s
 
 #-------------------------------------------------
@@ -908,7 +908,7 @@ class MeanEmbeddingTest(TwoSampleTest):
 
     #===============================
     @staticmethod
-    def compute_nc_parameter(X, Y, T, gwidth, reg=0.0):
+    def compute_nc_parameter(X, Y, T, gwidth, reg='auto'):
         """
         Compute the non-centrality parameter of the non-central Chi-squared 
         which is the distribution of the test statistic under the H_1 (and H_0).
@@ -1006,11 +1006,14 @@ class MeanEmbeddingTest(TwoSampleTest):
         :return a theano function T |-> Lambda(T)
         """
 
-        T0 = MeanEmbeddingTest.init_locs_2randn(tst_data, n_test_locs, seed=seed)
+        med = util.meddistance(tst_data.stack_xy(), 1000)
+        T0 = MeanEmbeddingTest.init_locs_2randn(tst_data, n_test_locs,
+                subsample=10000, seed=seed)
+        #T0 = MeanEmbeddingTest.init_check_subset(tst_data, n_test_locs, med**2,
+        #      n_cand=30, seed=seed+10)
         func_z = MeanEmbeddingTest.construct_z_theano
         # Use grid search to initialize the gwidth
-        med = util.meddistance(tst_data.stack_xy(), 1000)
-        list_gwidth2 = np.hstack( ( (med**2) *(2.0**np.linspace(-3, 4, 40) ) ) )
+        list_gwidth2 = np.hstack( ( (med**2) *(2.0**np.linspace(-3, 4, 30) ) ) )
         list_gwidth2.sort()
         besti, powers = MeanEmbeddingTest.grid_search_gwidth(tst_data, T0,
                 list_gwidth2, alpha)
@@ -1029,6 +1032,59 @@ class MeanEmbeddingTest(TwoSampleTest):
                 'gwidths': info['gwidths'], 'obj_values': info['obj_values'],
                 'gwidth0': gwidth0, 'gwidth0_powers': powers}
         return (T, gamma, ninfo  )
+
+
+    @staticmethod
+    def init_check_subset(tst_data, n_test_locs, gwidth2, n_cand=20, subsample=2000,
+            seed=3):
+        """
+        Evaluate a set of locations to find the best locations to initialize. 
+        The location candidates are randomly drawn subsets of n_test_locs vectors.
+        - subsample the data when computing the objective 
+        - n_cand: number of times to draw from the joint and the product 
+            of the marginals.
+        Return V, W
+        """
+
+        X, Y = tst_data.xy()
+        n = X.shape[0]
+
+        # from the joint 
+        objs = np.zeros(n_cand)
+        seed_seq_joint = util.subsample_ind(7*n_cand, n_cand, seed=seed*5)
+        for i in range(n_cand):
+            V = MeanEmbeddingTest.init_locs_subset(tst_data, n_test_locs,
+                    seed=seed_seq_joint[i])
+            if subsample < n:
+                I = util.subsample_ind(n, n_test_locs, seed=seed_seq_joint[i]+1)
+                XI = X[I, :]
+                YI = Y[I, :]
+            else:
+                XI = X
+                YI = Y
+
+            objs[i] = MeanEmbeddingTest.compute_nc_parameter(XI, YI, V,
+                    gwidth2, reg='auto')
+
+        objs[np.logical_not(np.isfinite(objs))] = -np.infty
+        # best index 
+        bind = np.argmax(objs)
+        Vbest = MeanEmbeddingTest.init_locs_subset(tst_data, n_test_locs,
+                seed=seed_seq_joint[bind])
+        return Vbest
+
+
+    @staticmethod
+    def init_locs_subset(tst_data, n_test_locs, seed=2):
+        """
+        Randomly choose n_test_locs from the union of X and Y in tst_data.
+        """
+        XY = tst_data.stack_xy()
+        n2 = XY.shape[0]
+        I = util.subsample_ind(n2, n_test_locs, seed=seed)
+        V = XY[I, :]
+        return V
+
 
     @staticmethod 
     def init_locs_randn(tst_data, n_test_locs, seed=1):
@@ -1057,53 +1113,59 @@ class MeanEmbeddingTest(TwoSampleTest):
         return T0
 
     @staticmethod 
-    def init_locs_2randn(tst_data, n_test_locs, seed=1):
+    def init_locs_2randn(tst_data, n_test_locs, subsample=10000, seed=1):
         """Fit a Gaussian to each dataset and draw half of n_test_locs from 
-        each """
+        each. This way of initialization can be expensive if the input
+        dimension is large.
+        
+        """
         if n_test_locs == 1:
             return MeanEmbeddingTest.init_locs_randn(tst_data, n_test_locs, seed)
 
-        # set the seed 
-        rand_state = np.random.get_state()
-        np.random.seed(seed)
-
         X, Y = tst_data.xy()
-        d = X.shape[1]
-        # fit a Gaussian to each of X, Y
-        mean_x = np.mean(X, 0)
-        mean_y = np.mean(Y, 0)
-        cov_x = np.cov(X.T)
-        [Dx, Vx] = np.linalg.eig(cov_x + 1e-3*np.eye(d))
-        Dx = np.real(Dx)
-        Vx = np.real(Vx)
-        # a hack in case the data are high-dimensional and the covariance matrix 
-        # is low rank.
-        Dx[Dx<=0] = 1e-3
+        n = X.shape[0]
+        with util.NumpySeedContext(seed=seed):
+            # Subsample X, Y if needed. Useful if the data are too large.
+            if n > subsample:
+                I = util.subsample_ind(n, subsample, seed=seed+2)
+                X = X[I, :]
+                Y = Y[I, :]
+            
 
-        # shrink the covariance so that the drawn samples will not be so 
-        # far away from the data
-        eig_pow = 0.9 # 1.0 = not shrink
-        reduced_cov_x = Vx.dot(np.diag(Dx**eig_pow)).dot(Vx.T) + 1e-3*np.eye(d)
-        cov_y = np.cov(Y.T)
-        [Dy, Vy] = np.linalg.eig(cov_y + 1e-3*np.eye(d))
-        Vy = np.real(Vy)
-        Dy = np.real(Dy)
-        Dy[Dy<=0] = 1e-3
-        reduced_cov_y = Vy.dot(np.diag(Dy**eig_pow).dot(Vy.T)) + 1e-3*np.eye(d)
-        # integer division
-        Jx = n_test_locs/2
-        Jy = n_test_locs - Jx
+            d = X.shape[1]
+            # fit a Gaussian to each of X, Y
+            mean_x = np.mean(X, 0)
+            mean_y = np.mean(Y, 0)
+            cov_x = np.cov(X.T)
+            [Dx, Vx] = np.linalg.eig(cov_x + 1e-3*np.eye(d))
+            Dx = np.real(Dx)
+            Vx = np.real(Vx)
+            # a hack in case the data are high-dimensional and the covariance matrix 
+            # is low rank.
+            Dx[Dx<=0] = 1e-3
 
-        #from IPython.core.debugger import Tracer
-        #t = Tracer()
-        #t()
-        assert Jx+Jy==n_test_locs, 'total test locations is not n_test_locs'
-        Tx = np.random.multivariate_normal(mean_x, reduced_cov_x, Jx)
-        Ty = np.random.multivariate_normal(mean_y, reduced_cov_y, Jy)
-        T0 = np.vstack((Tx, Ty))
+            # shrink the covariance so that the drawn samples will not be so 
+            # far away from the data
+            eig_pow = 0.9 # 1.0 = not shrink
+            reduced_cov_x = Vx.dot(np.diag(Dx**eig_pow)).dot(Vx.T) + 1e-3*np.eye(d)
+            cov_y = np.cov(Y.T)
+            [Dy, Vy] = np.linalg.eig(cov_y + 1e-3*np.eye(d))
+            Vy = np.real(Vy)
+            Dy = np.real(Dy)
+            Dy[Dy<=0] = 1e-3
+            reduced_cov_y = Vy.dot(np.diag(Dy**eig_pow).dot(Vy.T)) + 1e-3*np.eye(d)
+            # integer division
+            Jx = n_test_locs/2
+            Jy = n_test_locs - Jx
 
-        # reset the seed back 
-        np.random.set_state(rand_state)
+            #from IPython.core.debugger import Tracer
+            #t = Tracer()
+            #t()
+            assert Jx+Jy==n_test_locs, 'total test locations is not n_test_locs'
+            Tx = np.random.multivariate_normal(mean_x, reduced_cov_x, Jx)
+            Ty = np.random.multivariate_normal(mean_y, reduced_cov_y, Jy)
+            T0 = np.vstack((Tx, Ty))
+
         return T0
 
     @staticmethod
@@ -1148,11 +1210,14 @@ class MeanEmbeddingTest(TwoSampleTest):
 
 # ///////////// global functions ///////////////
 
-def generic_nc_parameter(Z, reg=0.0):
+def generic_nc_parameter(Z, reg='auto'):
     """
     Compute the non-centrality parameter of the non-central Chi-squared 
-    which is the distribution of the test statistic under the H_1 (and H_0).
-    The nc parameter is also the test statistic. 
+    which is approximately the distribution of the test statistic under the H_1
+    (and H_0). The empirical nc parameter is also the test statistic. 
+
+    - reg can be 'auto'. This will automatically determine the lowest value of 
+    the regularization parameter so that the statistic can be computed.
     """
     #from IPython.core.debugger import Tracer 
     #Tracer()()
@@ -1162,14 +1227,39 @@ def generic_nc_parameter(Z, reg=0.0):
     W = np.mean(Z, 0)
     n_features = len(W)
     if n_features == 1:
-        s = n*(W[0]**2)/(reg+Sig)
+        s = float(n)*(W[0]**2)/(reg+Sig)
     else:
-        # test statistic
-        try:
-            s = n*np.linalg.solve(Sig + reg*np.eye(Sig.shape[0]), W).dot(W)
-        except np.linalg.LinAlgError:
-            print('LinAlgError. Return -1 as the nc_parameter.')
-            s = -1 
+        if reg=='auto':
+            # First compute with reg=0. If no problem, do nothing. 
+            # If the covariance is singular, make 0 eigenvalues positive.
+            try:
+                s = n*np.linalg.solve(Sig, W).dot(W)
+            except np.linalg.LinAlgError:
+                try:
+                    # singular matrix 
+                    # eigen decompose
+                    evals, eV = np.linalg.eig(Sig)
+                    evals = np.real(evals)
+                    eV = np.real(eV)
+                    evals = np.maximum(0, evals)
+                    # find the non-zero second smallest eigenvalue
+                    snd_small = np.sort(evals[evals > 0])[0]
+                    evals[evals <= 0] = snd_small
+
+                    # reconstruct Sig 
+                    Sig = eV.dot(np.diag(evals)).dot(eV.T)
+                    # try again
+                    s = n*np.linalg.solve(Sig, W).dot(W)
+                except:
+                    s = -1
+        else:
+            # assume reg is a number 
+            # test statistic
+            try:
+                s = n*np.linalg.solve(Sig + reg*np.eye(Sig.shape[0]), W).dot(W)
+            except np.linalg.LinAlgError:
+                print('LinAlgError. Return -1 as the nc_parameter.')
+                s = -1 
     return s
 
 def generic_grid_search_gwidth(tst_data, T, df, list_gwidth, alpha, func_nc_param):
@@ -1294,7 +1384,7 @@ def optimize_gaussian_width(tst_data, T, gwidth0, func_z, max_iter=400,
 # Used by SmoothCFTest and MeanEmbeddingTest
 def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400, 
         T_step_size=0.05, gwidth_step_size=0.01, batch_proportion=1.0, 
-        tol_fun=1e-3 ):
+        tol_fun=1e-3, reg=1e-5):
     """Optimize the T (test locations for MeanEmbeddingTest, frequencies for 
     SmoothCFTest) and the Gaussian kernel width by 
     maximizing the test power. X, Y should not be the same data as used 
@@ -1312,6 +1402,7 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
     - batch_proportion: (0,1] value to be multipled with nx giving the batch 
         size in stochastic gradient. 1 = full gradient ascent.
     - tol_fun: termination tolerance of the objective value
+    - reg: a regularization parameter. Must be a non-negative number.
     
     Return (test_locs, gaussian_width, info)
     """
@@ -1320,6 +1411,7 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
     #print(T0)
     X, Y = tst_data.xy()
     nx, d = X.shape
+    J = T0.shape[0]
     # initialize Theano variables
     T = theano.shared(T0, name='T')
     Xth = tensor.dmatrix('X')
@@ -1329,6 +1421,8 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
     # positivity constraint by squaring it later.
     gamma_sq_init = gwidth0**0.5
     gamma_sq_th = theano.shared(gamma_sq_init, name='gamma')
+    regth = theano.shared(reg, name='reg')
+    diag_regth = regth*tensor.eye(J)
 
     #sqr(x) = x^2
     Z = func_z(Xth, Yth, T, tensor.sqr(gamma_sq_th))
@@ -1339,7 +1433,7 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
 
     # gradient computation does not support solve()
     #s = slinalg.solve(Sig, W).dot(nx*W)
-    s = nlinalg.matrix_inverse(Sig).dot(W).dot(W)*nx
+    s = nlinalg.matrix_inverse(Sig + diag_regth).dot(W).dot(W)*nx
     gra_T, gra_gamma_sq = tensor.grad(s, [T, gamma_sq_th])
     step_pow = 0.5
     max_gam_sq_step = 1.0
