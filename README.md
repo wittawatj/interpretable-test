@@ -7,7 +7,7 @@ This repository contains a Python implementation of the Mean Embeddings (ME) tes
 
     Interpretable Distribution Features with Maximum Testing Power
     Wittawat Jitkrittum, Zoltán Szabó, Kacper Chwialkowski, Arthur Gretton
-    arXiv. May, 2016.
+    NIPS, 2016
 
 ## How to install?
 1. Make sure that you have a complete [Scipy stack](https://www.scipy.org/stackspec.html) installed. One way to guarantee this is to install it using [Anaconda with Python 2.7](https://www.continuum.io/downloads), which is also the environment we used to develop this package.
