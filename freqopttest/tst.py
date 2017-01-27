@@ -1227,6 +1227,7 @@ def generic_nc_parameter(Z, reg='auto'):
     W = np.mean(Z, 0)
     n_features = len(W)
     if n_features == 1:
+        reg = 0 if reg=='auto' else reg
         s = float(n)*(W[0]**2)/(reg+Sig)
     else:
         if reg=='auto':
