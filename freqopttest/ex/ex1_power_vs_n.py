@@ -133,8 +133,8 @@ def job_scf_opt(prob_label, tr, te, r, ni, n):
 def job_scf_opt10(prob_label, tr, te, r, ni, n):
     """SmoothCFTest with frequencies optimized."""
     with util.ContextTimer() as t:
-        op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 2.0,
-                'gwidth_step_size': 0.2, 'seed': r+92856, 'tol_fun': 1e-4}
+        op = {'n_test_freqs': J, 'max_iter': 200, 'freqs_step_size': 1.0,
+                'gwidth_step_size': 0.2, 'seed': r+92856, 'tol_fun': 1e-3}
         test_freqs, gwidth, info = tst.SmoothCFTest.optimize_freqs_width(tr, alpha, **op)
         scf_opt = tst.SmoothCFTest(test_freqs, gwidth, alpha)
         scf_opt_test = scf_opt.perform_test(te)

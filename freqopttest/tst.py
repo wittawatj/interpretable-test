@@ -94,7 +94,8 @@ class HotellingT2Test(TwoSampleTest):
 
 
 class LinearMMDTest(TwoSampleTest):
-    """Two-sample test with linear MMD^2 statistic. """
+    """Two-sample test with linear MMD^2 statistic. 
+    """
     
     def __init__(self, kernel, alpha=0.01):
         """
@@ -169,7 +170,7 @@ class LinearMMDTest(TwoSampleTest):
     @staticmethod
     def variance(X, Y, kernel, lin_mmd=None):
         """Compute an estimate of the variance of the linear MMD.
-        Require O(n^2)
+        Require O(n^2). This is the variance under H1. 
         """
         if X.shape[0] != Y.shape[0]:
             raise ValueError('Require sample size of X = size of Y')
@@ -188,7 +189,6 @@ class LinearMMDTest(TwoSampleTest):
     def grid_search_kernel(tst_data, list_kernels, alpha):
         """
         Return from the list the best kernel that maximizes the test power.
-        The test power of the linear mmd is given by the CDF of a Gaussian. 
 
         return: (best kernel index, list of test powers)
         """
@@ -205,6 +205,8 @@ class LinearMMDTest(TwoSampleTest):
             powers[ki] = power
         best_ind = np.argmax(powers)
         return best_ind, powers
+
+# end of LinearMMDTest
 
 
 class QuadMMDTest(TwoSampleTest):
@@ -279,15 +281,24 @@ class QuadMMDTest(TwoSampleTest):
         #ny = Y.shape[0]
         #list_mmd2 = np.zeros(n_permute)
         #for r in range(n_permute):
-        #    ind = np.random.choice(nxy, nxy, replace=False)
-        #    # divide into new X, Y
-        #    Xr = XY[ind[:nx]]
-        #    Yr = XY[ind[nx:]]
-        #    mmd2r, var = QuadMMDTest.h1_mean_var(Xr, Yr, k, is_var_computed=False)
-        #    list_mmd2[r] = mmd2r
+        #   ind = np.random.choice(nxy, nxy, replace=False)
+        #   # divide into new X, Y
+        #   Xr = XY[ind[:nx]]
+        #   Yr = XY[ind[nx:]]
+        #   mmd2r, var = QuadMMDTest.h1_mean_var(Xr, Yr, k, is_var_computed=False)
+        #   list_mmd2[r] = mmd2r
 
         #np.random.set_state(rand_state)
         #return list_mmd2
+
+    @staticmethod
+    def permutation_list_mmd2_rahul(X, Y, k, n_permute=400, seed=8273):
+        """ Permutation by maintaining inverse indices. This approach is due to
+        Rahul (Soumyajit De) briefly described in "Generative Models and Model
+        Criticism via Optimized Maximum Mean Discrepancy" """
+        pass
+
+
 
     @staticmethod 
     def permutation_list_mmd2_gram(X, Y, k, n_permute=400, seed=8273):
@@ -433,11 +444,10 @@ class QuadMMDTest(TwoSampleTest):
         return QuadMMDTest.h1_mean_var_gram(Kx, Ky, Kxy, is_var_computed, use_1sample_U)
 
     @staticmethod
-    def grid_search_kernel(tst_data, list_kernels, alpha):
+    def grid_search_kernel(tst_data, list_kernels, alpha, reg=1e-3):
         """
-        Return from the list the best kernel that maximizes the test power.
-        The test power of the quadratic mmd under H1 is given by the CDF of a Gaussian. 
-
+        Return from the list the best kernel that maximizes the test power criterion.
+        
         In principle, the test threshold depends on the null distribution, which 
         changes with kernel. Thus, we need to recompute the threshold for each kernel
         (require permutations), which is expensive. However, asymptotically 
@@ -446,28 +456,24 @@ class QuadMMDTest(TwoSampleTest):
         This is an approximate to avoid doing permutations for each kernel 
         candidate.
 
-        In the returned list of test powers, it is assumed that the test threshold 
-        is zero.
+        - reg: regularization parameter
 
-        return: (best kernel index, list of test powers)
+        return: (best kernel index, list of test power objective values)
         """
         import time
         X, Y = tst_data.xy()
         n = X.shape[0]
-        powers = np.zeros(len(list_kernels))
+        obj_values = np.zeros(len(list_kernels))
         for ki, k in enumerate(list_kernels):
             start = time.time()
             mmd2, mmd2_var = QuadMMDTest.h1_mean_var(X, Y, k, is_var_computed=True)
-            # Assume threshold = 0
-            thresh = 0
-            power = stats.norm.sf(thresh, loc=mmd2, scale=mmd2_var**0.5)
-            #power = lin_mmd/var_lin_mmd
-            powers[ki] = power
+            obj = (mmd2_var + reg)**0.5
+            obj_values[ki] = obj
             end = time.time()
-            print('(%d/%d) %s: mmd2: %.3g, var: %.3g, pow: %.2g, took: %s'%(ki+1,
-                len(list_kernels), str(k), mmd2, mmd2_var, power, end-start))
-        best_ind = np.argmax(powers)
-        return best_ind, powers
+            print('(%d/%d) %s: mmd2: %.3g, var: %.3g, power obj: %g, took: %s'%(ki+1,
+                len(list_kernels), str(k), mmd2, mmd2_var, obj, end-start))
+        best_ind = np.argmax(obj_values)
+        return best_ind, obj_values
 
 
 class GammaMMDKGaussTest(TwoSampleTest):
@@ -756,8 +762,8 @@ class SmoothCFTest(TwoSampleTest):
 
         # grid search to determine the initial gwidth
         mean_sd = tst_data.mean_std()
-        scales = 2.0**np.linspace(-4, 4, 20)
-        list_gwidth = np.hstack( (mean_sd*scales*(d**0.5), 2**np.linspace(-7, 7, 20) ))
+        scales = 2.0**np.linspace(-4, 3, 20)
+        list_gwidth = np.hstack( (mean_sd*scales*(d**0.5), 2**np.linspace(-4, 4, 20) ))
         list_gwidth.sort()
         besti, powers = SmoothCFTest.grid_search_gwidth(tst_data, T0,
                 list_gwidth, alpha)
@@ -984,7 +990,7 @@ class MeanEmbeddingTest(TwoSampleTest):
     @staticmethod
     def optimize_locs_width(tst_data, alpha, n_test_locs=10, max_iter=400, 
             locs_step_size=0.1, gwidth_step_size=0.01, batch_proportion=1.0, 
-            tol_fun=1e-3, seed=1):
+            tol_fun=1e-3, reg=1e-5, seed=1):
         """Optimize the test locations and the Gaussian kernel width by 
         maximizing the test power. X, Y should not be the same data as used 
         in the actual test (i.e., should be a held-out set). 
@@ -1025,7 +1031,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         T, gamma, info = optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, 
                 max_iter=max_iter, T_step_size=locs_step_size, 
                 gwidth_step_size=gwidth_step_size, batch_proportion=batch_proportion,
-                tol_fun=tol_fun)
+                tol_fun=tol_fun, reg=reg)
         assert util.is_real_num(gamma), 'gamma is not real. Was %s' % str(gamma)
 
         ninfo = {'test_locs': info['Ts'], 'test_locs0': info['T0'], 

@@ -152,7 +152,6 @@ ex = 3
 # sample size = n (the number training and test sizes)
 sample_size = 2000
 
-# number of test locations / test frequencies J
 alpha = 0.01
 tr_proportion = 0.5
 # repetitions for each dimension

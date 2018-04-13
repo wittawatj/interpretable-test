@@ -1,5 +1,5 @@
 """
-Module for testing indtest module.
+Module for testing tst module.
 """
 
 __author__ = 'wittawat'
@@ -49,15 +49,10 @@ class TestMETest(unittest.TestCase):
                 self.assertGreaterEqual(result2['pvalue'],  0)
                 self.assertGreaterEqual(result2['test_stat'],  0)
 
-
     def tearDown(self):
         pass
 
 
-
-
-
-# end TestQuadHSIC
-
 if __name__ == '__main__':
    unittest.main()
+
