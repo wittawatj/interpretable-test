@@ -14,10 +14,12 @@ This repository contains a Python implementation of the Mean Embeddings (ME) tes
     NIPS, 2016
 
 ## How to install?
-1. Make sure that you have a complete [Scipy stack](https://www.scipy.org/stackspec.html) installed. One way to guarantee this is to install it using [Anaconda with Python 2.7](https://www.continuum.io/downloads), which is also the environment we used to develop this package.
-2. Clone or download this repository. You will get a folder with name `interpretable-test`.
-3. Add the path to the folder to Python's search path i.e., to `PYTHONPATH` global variable. See, for instance, [this page on stackoverflow](http://stackoverflow.com/questions/11960602/how-to-add-something-to-pythonpath) on how to do this in Linux. See [here](http://stackoverflow.com/questions/3701646/how-to-add-to-the-pythonpath-in-windows-7) for Windows. 
-4. Check that indeed the package is in the search path by openning a new Python shell, and issuing `import freqopttest` (`freqopttest` is the name of our Python package). If there is no import error, the installation is completed.  
+
+The package can be installed with the `pip` command.
+
+    pip install git+https://github.com/wittawatj/interpretable-test
+
+Once installed, you should be able to do `import freqopttest` without any error.
 
 ## Demo scripts
 To get started, check [demo_interpretable_test.ipynb](https://github.com/wittawatj/interpretable-test/blob/master/ipynb/demo_interpretable_test.ipynb) which will guide you through from the beginning. There are many Jupyter notebooks in `ipynb` folder. Be sure to check them if you want to explore more.
