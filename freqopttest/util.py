@@ -1,5 +1,7 @@
 """A module containing convenient methods for general machine learning"""
+from __future__ import print_function
 
+from builtins import object
 __author__ = 'wittawat'
 
 import numpy as np
@@ -29,7 +31,7 @@ class ContextTimer(object):
         self.end = time.time()
         self.secs = self.end - self.start 
         if self.verbose:
-            print 'elapsed time: %f ms' % (self.secs*1000)
+            print('elapsed time: %f ms' % (self.secs*1000))
 
 # end class ContextTimer
 

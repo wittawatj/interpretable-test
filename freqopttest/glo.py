@@ -4,10 +4,7 @@ __author__ = 'wittawat'
 
 import freqopttest
 import os
-try:
-    import cPickle as pickle 
-except:
-    import pickle
+import pickle
 
 
 def get_root():

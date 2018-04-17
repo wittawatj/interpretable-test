@@ -1,15 +1,21 @@
 """
 Experiment on real text data.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
 import freqopttest.data as data
 import freqopttest.tst as tst
 import freqopttest.glo as glo
 import freqopttest.util as util 
 import freqopttest.kernel as kernel 
-import exglobal
+from . import exglobal
 try:
-   import cPickle as pickle 
+   import pickle as pickle 
 except:
    import pickle
 
@@ -289,7 +295,7 @@ def get_sample_source(prob_label):
     """Return a (SampleSource, n) representing the problem"""
 
     if prob_label not in label2fname:
-        raise ValueError('Unknown problem label. Need to be one of %s'%str(label2fname.keys()) )
+        raise ValueError('Unknown problem label. Need to be one of %s'%str(list(label2fname.keys())) )
     fname = label2fname[prob_label]
     tst_data, n = load_nips_TSTData(fname)
     ss = data.SSResample(tst_data)

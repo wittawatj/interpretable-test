@@ -1,14 +1,17 @@
 """Module containing kernel related classes"""
+from __future__ import division
 
+from past.utils import old_div
+from builtins import object
+from future.utils import with_metaclass
 __author__ = 'wittawat'
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
 import scipy.signal as sig
 
-class Kernel(object):
+class Kernel(with_metaclass(ABCMeta, object)):
     """Abstract class for kernels"""
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def eval(self, X1, X2):
@@ -72,7 +75,7 @@ class KGauss(Kernel):
         (n2, d2) = X2.shape
         assert d1==d2, 'Dimensions of the two inputs must be the same'
         D2 = np.sum(X1**2, 1)[:, np.newaxis] - 2*X1.dot(X2.T) + np.sum(X2**2, 1)
-        K = np.exp(-D2/self.sigma2)
+        K = np.exp(old_div(-D2,self.sigma2))
         return K
 
     def pair_eval(self, X, Y):
@@ -92,7 +95,7 @@ class KGauss(Kernel):
         assert n1==n2, 'Two inputs must have the same number of instances'
         assert d1==d2, 'Two inputs must have the same dimension'
         D2 = np.sum( (X-Y)**2, 1)
-        Kvec = np.exp(-D2/self.sigma2)
+        Kvec = np.exp(old_div(-D2,self.sigma2))
         return Kvec
 
     def __str__(self):
@@ -127,7 +130,7 @@ class KTriangle(Kernel):
         (n2, d2) = X2.shape
         assert d1==1, 'd1 must be 1'
         assert d2==1, 'd2 must be 1'
-        diff = (X1-X2.T)/self.width
+        diff = old_div((X1-X2.T),self.width)
         K = sig.bspline( diff , 1)
         return K
 
@@ -147,7 +150,7 @@ class KTriangle(Kernel):
         (n2, d2) = Y.shape
         assert d1==1, 'd1 must be 1'
         assert d2==1, 'd2 must be 1'
-        diff = (X-Y)/self.width
+        diff = old_div((X-Y),self.width)
         Kvec = sig.bspline( diff , 1)
         return Kvec
 

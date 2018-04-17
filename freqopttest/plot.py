@@ -2,6 +2,7 @@
 A module for plotting experimental results
 """
 
+from builtins import range
 __author__ = 'wittawat'
 import freqopttest.ex.exglobal as exglo
 import freqopttest.glo as glo

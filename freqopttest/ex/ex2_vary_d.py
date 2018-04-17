@@ -1,6 +1,10 @@
 """Simulation to examine the type-1 error or test power as the dimension 
 increases"""
+from __future__ import print_function
+from __future__ import absolute_import
 
+from builtins import str
+from builtins import range
 __author__ = 'wittawat'
 
 import freqopttest.ex.ex1_power_vs_n as ex1
@@ -9,7 +13,7 @@ import freqopttest.tst as tst
 import freqopttest.glo as glo
 import freqopttest.util as util 
 import freqopttest.kernel as kernel 
-import exglobal
+from . import exglobal
 
 # need independent_jobs package 
 # https://github.com/karlnapf/independent-jobs
@@ -303,7 +307,7 @@ def get_sample_source_list(prob_label):
             'sg_low': [data.SSSameGauss(d=d) for d in low_dims]
             }
     if prob_label not in prob2ss:
-        raise ValueError('Unknown problem label. Need to be one of %s'%str(prob2ss.keys()) )
+        raise ValueError('Unknown problem label. Need to be one of %s'%str(list(prob2ss.keys())) )
     return prob2ss[prob_label]
 
 def main():

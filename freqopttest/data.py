@@ -1,3 +1,11 @@
+from __future__ import print_function
+from __future__ import division
+from builtins import map
+from builtins import str
+from builtins import range
+from past.utils import old_div
+from builtins import object
+from future.utils import with_metaclass
 __author__ = 'wittawat'
 
 from abc import ABCMeta, abstractmethod
@@ -8,10 +16,9 @@ import freqopttest.util as util
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 
-class SampleSource(object):
+class SampleSource(with_metaclass(ABCMeta, object)):
     """A data source where it is possible to resample. Subclasses may prefix 
     class names with SS"""
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def sample(self, n, seed):
@@ -96,7 +103,7 @@ class SSUnif(SampleSource):
         qub: a numpy array of upper bounds of q
         """
         convertif = lambda a: np.array(a) if isinstance(a, list) else a 
-        plb, pub, qlb, qub = map(convertif, [plb, pub, qlb, qub])
+        plb, pub, qlb, qub = list(map(convertif, [plb, pub, qlb, qub]))
         if not np.all([plb.shape[0]==pub.shape[0], pub.shape[0]==qlb.shape[0], 
                 qlb.shape[0]==qub.shape[0]]):
             raise ValueError('all lower and upper bounds must have the same length')
@@ -157,9 +164,9 @@ class SSMixUnif1D(SampleSource):
         if qbs.shape[1] != 2:
             raise ValueError('qbs must have 2 columns')
         if pmix is None:
-            pmix = np.ones(cx)/float(cx)
+            pmix = old_div(np.ones(cx),float(cx))
         if qmix is None:
-            qmix = np.ones(cy)/float(cy)
+            qmix = old_div(np.ones(cy),float(cy))
 
         if len(pmix) != cx:
             raise ValueError('Length of pmix does not match #rows of pbs')
@@ -255,7 +262,7 @@ class SSBlobs(SampleSource):
     in Chwialkovski et al., 2015 as well as Gretton et al., 2012. 
     Part of the code taken from Dino Sejdinovic and Kacper Chwialkovski's code."""
 
-    def __init__(self, blob_distance=5, num_blobs=4, stretch=2, angle=math.pi/4.0):
+    def __init__(self, blob_distance=5, num_blobs=4, stretch=2, angle=old_div(math.pi,4.0)):
         self.blob_distance = blob_distance
         self.num_blobs = num_blobs
         self.stretch = stretch
@@ -286,7 +293,7 @@ def gen_blobs(stretch, angle, blob_distance, num_blobs, num_samples):
     r = np.array( [[math.cos(angle), -math.sin(angle)], [math.sin(angle), math.cos(angle)]] )
     eigenvalues = np.diag(np.array([np.sqrt(stretch), 1]))
     mod_matix = r.dot(eigenvalues)
-    mean = float(blob_distance * (num_blobs-1)) / 2
+    mean = old_div(float(blob_distance * (num_blobs-1)), 2)
     mu = np.random.randint(0, num_blobs,(num_samples, 2))*blob_distance - mean
     return np.random.randn(num_samples,2).dot(mod_matix) + mu
 
@@ -426,7 +433,7 @@ class TSTData(object):
         X, Y = self.xy()
         stdx = np.mean(np.std(X, 0))
         stdy = np.mean(np.std(Y, 0))
-        mstd = (stdx + stdy)/2.0
+        mstd = old_div((stdx + stdy),2.0)
         return mstd
         #xy = self.stack_xy()
         #return np.mean(np.std(xy, 0)**2.0)**0.5

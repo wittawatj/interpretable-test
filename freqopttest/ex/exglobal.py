@@ -2,6 +2,7 @@
 A module containing functions shared among all experiments 
 """ 
 
+from builtins import zip
 __author__ = 'wittawat'
 
 def get_func2label_map():

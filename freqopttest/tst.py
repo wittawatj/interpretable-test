@@ -1,5 +1,12 @@
 """Module containing many types of two sample test algorithms"""
+from __future__ import print_function
+from __future__ import division
 
+from builtins import str
+from builtins import range
+from past.utils import old_div
+from builtins import object
+from future.utils import with_metaclass
 __author__ = "wittawat"
 
 from abc import ABCMeta, abstractmethod
@@ -16,9 +23,8 @@ import theano.tensor as tensor
 import theano.tensor.nlinalg as nlinalg
 import theano.tensor.slinalg as slinalg
 
-class TwoSampleTest(object):
+class TwoSampleTest(with_metaclass(ABCMeta, object)):
     """Abstract class for two sample tests."""
-    __metaclass__ = ABCMeta
 
     def __init__(self, alpha=0.01):
         """
@@ -88,7 +94,7 @@ class HotellingT2Test(TwoSampleTest):
         mdiff = mx-my
         sx = np.cov(X.T)
         sy = np.cov(Y.T)
-        s = sx/nx + sy/ny
+        s = old_div(sx,nx) + old_div(sy,ny)
         chi2_stat = np.linalg.solve(s, mdiff).dot(mdiff)
         return chi2_stat
 
@@ -181,7 +187,7 @@ class LinearMMDTest(TwoSampleTest):
         K = kernel.eval(X, X)
         L = kernel.eval(Y, Y)
         KL = kernel.eval(X, Y)
-        snd_moment = np.sum( (K+L-KL-KL.T)**2 )/(n*(n-1))
+        snd_moment = old_div(np.sum( (K+L-KL-KL.T)**2 ),(n*(n-1)))
         var_mmd = 2.0*(snd_moment - lin_mmd**2)
         return var_mmd
 
@@ -344,13 +350,13 @@ class QuadMMDTest(TwoSampleTest):
 
         nx = Kx.shape[0]
         ny = Ky.shape[0]
-        xx = (np.sum(Kx) - np.sum(np.diag(Kx)))/(nx*(nx-1))
-        yy = (np.sum(Ky) - np.sum(np.diag(Ky)))/(ny*(ny-1))
+        xx = old_div((np.sum(Kx) - np.sum(np.diag(Kx))),(nx*(nx-1)))
+        yy = old_div((np.sum(Ky) - np.sum(np.diag(Ky))),(ny*(ny-1)))
         # one-sample U-statistic.
         if use_1sample_U:
-            xy = (np.sum(Kxy) - np.sum(np.diag(Kxy)))/(nx*(ny-1))
+            xy = old_div((np.sum(Kxy) - np.sum(np.diag(Kxy))),(nx*(ny-1)))
         else:
-            xy = np.sum(Kxy)/(nx*ny)
+            xy = old_div(np.sum(Kxy),(nx*ny))
         mmd2 = xx - 2*xy + yy
 
         if not is_var_computed:
@@ -502,7 +508,7 @@ class GammaMMDKGaussTest(TwoSampleTest):
         # parameters of the fitted Gamma distribution
         X, _ = tst_data.xy()
         n = X.shape[0]
-        al = meanMMD**2 / varMMD
+        al = old_div(meanMMD**2, varMMD)
         bet = varMMD*n / meanMMD
         pval = stats.gamma.sf(test_stat, al, scale=bet)
         results = {'alpha': self.alpha, 'pvalue': pval, 'test_stat': test_stat,
@@ -686,13 +692,13 @@ class SmoothCFTest(TwoSampleTest):
         """
         if X.shape[0] != Y.shape[0]:
             raise ValueError('Sample size n must be the same for X and Y.')
-        X = X/gaussian_width
-        Y = Y/gaussian_width 
+        X = old_div(X,gaussian_width)
+        Y = old_div(Y,gaussian_width) 
         n, d = X.shape
         J = test_freqs.shape[0]
         # inverse Fourier transform (upto scaling) of the unit-width Gaussian kernel 
-        fx = np.exp(-np.sum(X**2, 1)/2)[:, np.newaxis]
-        fy = np.exp(-np.sum(Y**2, 1)/2)[:, np.newaxis]
+        fx = np.exp(old_div(-np.sum(X**2, 1),2))[:, np.newaxis]
+        fy = np.exp(old_div(-np.sum(Y**2, 1),2))[:, np.newaxis]
         # n x J
         x_freq = X.dot(test_freqs.T)
         y_freq = Y.dot(test_freqs.T)
@@ -711,11 +717,11 @@ class SmoothCFTest(TwoSampleTest):
         
         Return a n x 2J numpy array. 2J because of sin and cos for each frequency.
         """
-        Xth = Xth/gwidth_th
-        Yth = Yth/gwidth_th 
+        Xth = old_div(Xth,gwidth_th)
+        Yth = old_div(Yth,gwidth_th) 
         # inverse Fourier transform (upto scaling) of the unit-width Gaussian kernel 
-        fx = tensor.exp(-(Xth**2).sum(1)/2).reshape((-1, 1))
-        fy = tensor.exp(-(Yth**2).sum(1)/2).reshape((-1, 1))
+        fx = tensor.exp(old_div(-(Xth**2).sum(1),2)).reshape((-1, 1))
+        fy = tensor.exp(old_div(-(Yth**2).sum(1),2)).reshape((-1, 1))
         # n x J
         x_freq = Xth.dot(Tth.T)
         y_freq = Yth.dot(Tth.T)
@@ -907,7 +913,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         J = self.test_locs.shape[0]
         domain = np.linspace(stats.chi2.ppf(0.001, J), stats.chi2.ppf(0.9999, J), 200)
         plt.plot(domain, stats.chi2.pdf(domain, J), label='$\chi^2$ (df=%d)'%J)
-        plt.stem([s], [stats.chi2.pdf(J, J)/2], 'or-', label='test stat')
+        plt.stem([s], [old_div(stats.chi2.pdf(J, J),2)], 'or-', label='test stat')
         plt.legend(loc='best', frameon=True)
         plt.title('%s. p-val: %.3g. stat: %.3g'%(type(self).__name__, pval, s))
         plt.show()
@@ -953,7 +959,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         """
         n, d = X.shape
         D2 = np.sum(X**2, 1)[:, np.newaxis] - 2*X.dot(test_locs.T) + np.sum(test_locs**2, 1)
-        K = np.exp(-D2/(2.0*gwidth2))
+        K = np.exp(old_div(-D2,(2.0*gwidth2)))
         return K
 
     @staticmethod
@@ -965,7 +971,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         n, d = X.shape
 
         D2 = (X**2).sum(1).reshape((-1, 1)) - 2*X.dot(T.T) + tensor.sum(T**2, 1).reshape((1, -1))
-        K = tensor.exp(-D2/(2.0*gwidth2))
+        K = tensor.exp(old_div(-D2,(2.0*gwidth2)))
         return K
 
     @staticmethod
@@ -1161,7 +1167,7 @@ class MeanEmbeddingTest(TwoSampleTest):
             Dy[Dy<=0] = 1e-3
             reduced_cov_y = Vy.dot(np.diag(Dy**eig_pow).dot(Vy.T)) + 1e-3*np.eye(d)
             # integer division
-            Jx = n_test_locs/2
+            Jx = old_div(n_test_locs,2)
             Jy = n_test_locs - Jx
 
             #from IPython.core.debugger import Tracer
@@ -1343,10 +1349,10 @@ def optimize_gaussian_width(tst_data, T, gwidth0, func_z, max_iter=400,
 
     #sqr(x) = x^2
     Z = func_z(Xth, Yth, Tth, tensor.sqr(gamma_sq_th))
-    W = Z.sum(axis=0)/nx
+    W = old_div(Z.sum(axis=0),nx)
     # covariance 
     Z0 = Z - W
-    Sig = Z0.T.dot(Z0)/nx
+    Sig = old_div(Z0.T.dot(Z0),nx)
 
     # gradient computation does not support solve()
     #s = slinalg.solve(Sig, W).dot(nx*W)
@@ -1433,10 +1439,10 @@ def optimize_T_gaussian_width(tst_data, T0, gwidth0, func_z, max_iter=400,
 
     #sqr(x) = x^2
     Z = func_z(Xth, Yth, T, tensor.sqr(gamma_sq_th))
-    W = Z.sum(axis=0)/nx
+    W = old_div(Z.sum(axis=0),nx)
     # covariance 
     Z0 = Z - W
-    Sig = Z0.T.dot(Z0)/nx
+    Sig = old_div(Z0.T.dot(Z0),nx)
 
     # gradient computation does not support solve()
     #s = slinalg.solve(Sig, W).dot(nx*W)

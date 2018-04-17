@@ -1,15 +1,23 @@
 """
 Experiment on face data.
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import freqopttest.data as data
 import freqopttest.tst as tst
 import freqopttest.glo as glo
 import freqopttest.util as util 
 import freqopttest.kernel as kernel 
-import exglobal
+from . import exglobal
 try:
-    import cPickle as pickle 
+    import pickle as pickle 
 except:
     import pickle
 
@@ -254,11 +262,11 @@ def get_sample_source(prob_label):
     """Return a (SampleSource, n) representing the problem"""
 
     if prob_label not in label2fname:
-        raise ValueError('Unknown problem label. Need to be one of %s'%str(label2fname.keys()) )
+        raise ValueError('Unknown problem label. Need to be one of %s'%str(list(label2fname.keys())) )
 
     if prob_label == 'crop48_h0':
         one_sample = glo.load_data_file(label2fname[prob_label])
-        n_max = one_sample.shape[0]/2
+        n_max = old_div(one_sample.shape[0],2)
         return data.SSNullResample(one_sample), n_max
 
     fname = label2fname[prob_label]
