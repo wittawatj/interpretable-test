@@ -1,5 +1,9 @@
 # Interpretable Test 
 
+**17 April 2018**:  We updated the code base to provide support for both Python
+3 and Python 2.7. Please contact [Wittawat Jitkrittum](http://wittawat.com) if
+you found a bug.
+
 The goal of this project is to learn a set of features to distinguish two given distributions P and Q, as observed through two samples. This task is formulated as a two-sample test problem. The features are chosen so as to maximize the distinguishability of the distributions, by optimizing a lower bound on test power for a statistical test using these features. The result is a parsimonious and interpretable indication
 of how and where two distributions differ locally (when the null hypothesis i.e., P=Q is rejected). 
 
