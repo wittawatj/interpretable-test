@@ -473,7 +473,7 @@ class QuadMMDTest(TwoSampleTest):
         for ki, k in enumerate(list_kernels):
             start = time.time()
             mmd2, mmd2_var = QuadMMDTest.h1_mean_var(X, Y, k, is_var_computed=True)
-            obj = (mmd2_var + reg)**0.5
+            obj = float(mmd2)/((mmd2_var + reg)**0.5)
             obj_values[ki] = obj
             end = time.time()
             print('(%d/%d) %s: mmd2: %.3g, var: %.3g, power obj: %g, took: %s'%(ki+1,
