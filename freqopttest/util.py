@@ -4,7 +4,7 @@ from __future__ import print_function
 from builtins import object
 __author__ = 'wittawat'
 
-import numpy as np
+import autograd.numpy as np
 import time
 
 class ContextTimer(object):
@@ -60,7 +60,7 @@ def dist_matrix(X, Y):
     """
     sx = np.sum(X**2, 1)
     sy = np.sum(Y**2, 1)
-    D2 =  sx[:, np.newaxis] - 2.0*X.dot(Y.T) + sy[np.newaxis, :] 
+    D2 =  sx[:, np.newaxis] - 2.0*np.dot(X, Y.T) + sy[np.newaxis, :] 
     # to prevent numerical errors from taking sqrt of negative numbers
     D2[D2 < 0] = 0
     D = np.sqrt(D2)
@@ -140,3 +140,26 @@ def subsample_ind(n, k, seed=28):
     np.random.set_state(rand_state)
     return ind
 
+
+def fit_gaussian_draw(X, J, seed=28, reg=1e-7, eig_pow=1.0):
+    """
+    Fit a multivariate normal to the data X (n x d) and draw J points 
+    from the fit. 
+    - reg: regularizer to use with the covariance matrix
+    - eig_pow: raise eigenvalues of the covariance matrix to this power to construct 
+        a new covariance matrix before drawing samples. Useful to shrink the spread 
+        of the variance.
+    """
+    with NumpySeedContext(seed=seed):
+        d = X.shape[1]
+        mean_x = np.mean(X, 0)
+        cov_x = np.cov(X.T)
+        if d==1:
+            cov_x = np.array([[cov_x]])
+        [evals, evecs] = np.linalg.eig(cov_x)
+        evals = np.maximum(0, np.real(evals))
+        assert np.all(np.isfinite(evals))
+        evecs = np.real(evecs)
+        shrunk_cov = evecs.dot(np.diag(evals**eig_pow)).dot(evecs.T) + reg*np.eye(d)
+        V = np.random.multivariate_normal(mean_x, shrunk_cov, J)
+    return V

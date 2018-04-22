@@ -10,13 +10,14 @@ from future.utils import with_metaclass
 __author__ = "wittawat"
 
 from abc import ABCMeta, abstractmethod
-from freqopttest.data import TSTData
-import matplotlib.pyplot as plt
-import numpy as np
+import autograd
+import autograd.numpy as np
 #from numba import jit
 import freqopttest.util as util
 import freqopttest.kernel as kernel
 
+import matplotlib.pyplot as plt
+import scipy
 import scipy.stats as stats
 import theano
 import theano.tensor as tensor
@@ -95,7 +96,7 @@ class HotellingT2Test(TwoSampleTest):
         sx = np.cov(X.T)
         sy = np.cov(Y.T)
         s = old_div(sx,nx) + old_div(sy,ny)
-        chi2_stat = np.linalg.solve(s, mdiff).dot(mdiff)
+        chi2_stat = np.dot(np.linalg.solve(s, mdiff), mdiff)
         return chi2_stat
 
 
@@ -379,28 +380,28 @@ class QuadMMDTest(TwoSampleTest):
         Kyx1 = np.sum(Kxy, 0)
 
         #  varEst = 1/m/(m-1)/(m-2)    * ( sum(Kxd,1)*sum(Kxd,2) - sum(sum(Kxd.^2)))  ...
-        v[0] = 1.0/m/(m-1)/(m-2)*( Kxd0_red.dot(Kxd0_red ) - np.sum(Kxd**2) )
+        v[0] = 1.0/m/(m-1)/(m-2)*( np.dot(Kxd0_red, Kxd0_red ) - np.sum(Kxd**2) )
         #           -  (  1/m/(m-1)   *  sum(sum(Kxd))  )^2 ...
         v[1] = -( 1.0/m/(m-1) * Kxd_sum )**2
         #           -  2/m/(m-1)/n     *  sum(Kxd,1) * sum(Kxy,2)  ...
-        v[2] = -2.0/m/(m-1)/n * Kxd0_red.dot(Kxy1)
+        v[2] = -2.0/m/(m-1)/n * np.dot(Kxd0_red, Kxy1)
         #           +  2/m^2/(m-1)/n   * sum(sum(Kxd))*sum(sum(Kxy)) ...
         v[3] = 2.0/(m**2)/(m-1)/n * Kxd_sum*Kxy_sum
         #           +  1/(n)/(n-1)/(n-2) * ( sum(Kyd,1)*sum(Kyd,2) - sum(sum(Kyd.^2)))  ...
-        v[4] = 1.0/n/(n-1)/(n-2)*( Kyd0_red.dot(Kyd0_red) - np.sum(Kyd**2 ) ) 
+        v[4] = 1.0/n/(n-1)/(n-2)*( np.dot(Kyd0_red, Kyd0_red) - np.sum(Kyd**2 ) ) 
         #           -  ( 1/n/(n-1)   * sum(sum(Kyd))  )^2	...		       
         v[5] = -( 1.0/n/(n-1) * Kyd_sum )**2
         #           -  2/n/(n-1)/m     * sum(Kyd,1) * sum(Kxy',2)  ...
-        v[6] = -2.0/n/(n-1)/m * Kyd0_red.dot(Kyx1)
+        v[6] = -2.0/n/(n-1)/m * np.dot(Kyd0_red, Kyx1)
 
         #           +  2/n^2/(n-1)/m  * sum(sum(Kyd))*sum(sum(Kxy)) ...
         v[7] = 2.0/(n**2)/(n-1)/m * Kyd_sum*Kxy_sum
         #           +  1/n/(n-1)/m   * ( sum(Kxy',1)*sum(Kxy,2) -sum(sum(Kxy.^2))  ) ...
-        v[8] = 1.0/n/(n-1)/m * ( Kxy1.dot(Kxy1) - Kxy2_sum )
+        v[8] = 1.0/n/(n-1)/m * ( np.dot(Kxy1, Kxy1) - Kxy2_sum )
         #           - 2*(1/n/m        * sum(sum(Kxy))  )^2 ...
         v[9] = -2.0*( 1.0/n/m*Kxy_sum )**2
         #           +   1/m/(m-1)/n   *  ( sum(Kxy,1)*sum(Kxy',2) - sum(sum(Kxy.^2)))  ;
-        v[10] = 1.0/m/(m-1)/n * ( Kyx1.dot(Kyx1) - Kxy2_sum )
+        v[10] = 1.0/m/(m-1)/n * ( np.dot(Kyx1, Kyx1) - Kxy2_sum )
 
 
         #%additional low order correction made to some terms compared with ICLR submission
@@ -700,8 +701,8 @@ class SmoothCFTest(TwoSampleTest):
         fx = np.exp(old_div(-np.sum(X**2, 1),2))[:, np.newaxis]
         fy = np.exp(old_div(-np.sum(Y**2, 1),2))[:, np.newaxis]
         # n x J
-        x_freq = X.dot(test_freqs.T)
-        y_freq = Y.dot(test_freqs.T)
+        x_freq = np.dot(X, test_freqs.T)
+        y_freq = np.dot(Y, test_freqs.T)
         # zx: n x 2J
         zx = np.hstack((np.sin(x_freq)*fx, np.cos(x_freq)*fx))
         zy = np.hstack((np.sin(y_freq)*fy, np.cos(y_freq)*fy))
@@ -818,9 +819,337 @@ class SmoothCFTest(TwoSampleTest):
         return ( gamma, ninfo  )
 
 #-------------------------------------------------
+
+class UMETest(TwoSampleTest):
+    """
+    Unnormalized ME (UME) test. The test statistic is given by n (sample size)
+    times the unbiased version of the average of the evaluations of the squared
+    witness function. The squared witness is evaluated at J "test locations".
+    This is the test mentioned in Chwialkovski et al., 2015, but not studied.
+    The test statistic is a second-order U-statistic scaled up by n.
+    """
+    def __init__(self, test_locs, k, n_simulate=2000, seed=87, alpha=0.01):
+        """
+        test_locs: J x d numpy array of J test locations
+        k: a Kernel
+        n_simulate: number of draws from the null distribution
+        seed: random seed used when simulating the null distribution
+        alpha: significance level of the test.
+        """
+        super(UMETest, self).__init__(alpha)
+        if test_locs is None or len(test_locs) == 0:
+            raise ValueError('test_locs cannot be empty. Was {}'.format(test_locs))
+
+        self.test_locs = test_locs
+        self.k = k
+        self.n_simulate = n_simulate
+        self.seed = seed
+
+    def perform_test(self, tst_data, return_simulated_stats=False):
+        with util.ContextTimer() as t:
+            alpha = self.alpha
+            X, Y = tst_data.xy()
+            n = X.shape[0]
+            V = self.test_locs
+            J = V.shape[0]
+
+            # stat = n*(UME stat)
+            # Z = n x J feature matrix
+            stat, Z = self.compute_stat(tst_data, return_feature_matrix=True)
+
+            # Simulate from the asymptotic null distribution
+            n_simulate = self.n_simulate
+
+            # Uncentred covariance matrix
+            cov = np.dot(Z.T, Z)/float(n)
+
+            arr_nume, eigs = UMETest.list_simulate_spectral(cov, J, n_simulate,
+                    seed=self.seed)
+
+            # approximate p-value with the permutations 
+            pvalue = np.mean(arr_nume > stat)
+
+        results = {'alpha': self.alpha, 'pvalue': pvalue, 'test_stat': stat,
+                'h0_rejected': pvalue < alpha, 'n_simulate': n_simulate,
+                'time_secs': t.secs, 
+                }
+        if return_simulated_stats:
+            results['sim_stats'] = arr_nume
+        return results
+
+    def compute_stat(self, tst_data, return_feature_matrix=False):
+        """
+        tst_data: TSTData object
+
+        Return the statistic. If return_feature_matrix is True, then return 
+        (the statistic, feature tensor of size nxJ )
+        """
+        X, Y = tst_data.xy()
+        # n = sample size
+        n = X.shape[0]
+
+        Z = self.feature_matrix(tst_data)
+        uhat = UMETest.ustat_h1_mean_variance(Z, return_variance=False,
+                use_unbiased=True)
+        stat = n*uhat
+        if return_feature_matrix:
+            return stat, Z
+        else:
+            return stat
+
+    def feature_matrix(self, tst_data):
+        """
+        Compute the n x J feature matrix. The test statistic and other relevant
+        quantities can all be expressed as a function of this matrix. Here, n =
+        sample size, J = number of test locations.  
+        """
+        X, Y = tst_data.xy()
+        V = self.test_locs
+        # J = number of test locations
+        J = V.shape[0]
+        k = self.k
+
+        # n x J feature matrix
+        g = k.eval(X, V)/np.sqrt(J)
+        h = k.eval(Y, V)/np.sqrt(J)
+        Z = g-h
+        return Z
+
+    @staticmethod 
+    def list_simulate_spectral(cov, J, n_simulate=2000, seed=82):
+        """
+        Simulate the null distribution using the spectrum of the covariance
+        matrix.  This is intended to be used to approximate the null
+        distribution.
+
+        Return (a numpy array of simulated n*FSSD values, eigenvalues of cov)
+        """
+        # eigen decompose 
+        eigs, _ = np.linalg.eig(cov)
+        eigs = np.real(eigs)
+        # sort in decreasing order 
+        eigs = -np.sort(-eigs)
+        sim_umes = UMETest.simulate_null_dist(eigs, J, n_simulate=n_simulate,
+                seed=seed)
+        return sim_umes, eigs
+
+    @staticmethod 
+    def simulate_null_dist(eigs, J, n_simulate=2000, seed=7):
+        """
+        Simulate the null distribution using the spectrum of the covariance 
+        matrix of the U-statistic. The simulated statistic is n*UME^2 where
+        UME is an unbiased estimator.
+
+        - eigs: a numpy array of estimated eigenvalues of the covariance
+          matrix. eigs is of length J 
+        - J: the number of test locations.
+
+        Return a numpy array of simulated statistics.
+        """
+        # draw at most  J x block_size values at a time
+        block_size = max(20, int(old_div(1000.0,J)))
+        umes = np.zeros(n_simulate)
+        from_ind = 0
+        with util.NumpySeedContext(seed=seed):
+            while from_ind < n_simulate:
+                to_draw = min(block_size, n_simulate-from_ind)
+                # draw chi^2 random variables. 
+                chi2 = np.random.randn(J, to_draw)**2
+
+                # an array of length to_draw 
+                sim_umes = np.dot(eigs, chi2-1.0)
+
+                # store 
+                end_ind = from_ind+to_draw
+                umes[from_ind:end_ind] = sim_umes
+                from_ind = end_ind
+        return umes
+
+    @staticmethod
+    def power_criterion(tst_data, test_locs, k, reg=1e-2, use_unbiased=True): 
+        """
+        Compute the mean and standard deviation of the statistic under H1.
+        Return power criterion = mean_under_H1/sqrt(var_under_H1 + reg) .
+        """
+        ume = UMETest(test_locs, k)
+        Z = ume.feature_matrix(tst_data)
+        u_mean, u_variance = UMETest.ustat_h1_mean_variance(Z,
+                return_variance=True, use_unbiased=use_unbiased)
+
+        # mean/sd criterion 
+        sigma_h1 = np.sqrt(u_variance + reg)
+        ratio = old_div(u_mean, sigma_h1) 
+        return ratio
+
+    @staticmethod
+    def ustat_h1_mean_variance(feature_matrix, return_variance=True,
+            use_unbiased=True):
+        """
+        Compute the mean and variance of the asymptotic normal distribution 
+        under H1 of the test statistic. The mean converges to a constant as
+        n->\infty.
+
+        feature_matrix: n x J feature matrix 
+        return_variance: If false, avoid computing and returning the variance.
+        use_unbiased: If True, use the unbiased version of the mean. Can be
+            negative.
+
+        Return the mean [and the variance]
+        """
+        Z = feature_matrix
+        n, J = Z.shape
+        assert n > 1, 'Need n > 1 to compute the mean of the statistic.'
+        if use_unbiased:
+            t1 = np.sum(np.mean(Z, axis=0)**2)*(n/float(n-1))
+            t2 = np.mean(np.sum(Z**2, axis=1))/float(n-1)
+            mean_h1 = t1 - t2
+        else:
+            mean_h1 = np.sum(np.mean(Z, axis=0)**2)
+
+        if return_variance:
+            # compute the variance 
+            mu = np.mean(Z, axis=0) # length-J vector
+            variance = 4*np.mean(np.dot(Z, mu)**2) - 4*np.sum(mu**2)**2
+            return mean_h1, variance
+        else:
+            return mean_h1
+
+# end of class UMETest
+
+class GaussUMETest(UMETest):
+    """
+    UMETest using a Gaussian kernel. This class provides static methods for 
+    optimizing the Gaussian kernel bandwidth, and test locations.
+    """
+    def __init__(self, test_locs, sigma2, n_simulate=2000, seed=87, alpha=0.01):
+        """
+        test_locs: J x d numpy array of J test locations
+        sigma2: Squared bandwidth in the Gaussian kernel.
+        n_simulate: number of draws from the null distribution
+        seed: random seed used when simulating the null distribution
+        alpha: significance level of the test.
+        """
+        k = kernel.KGauss(sigma2)
+        super(GaussUMETest, self).__init__(test_locs, k, n_simulate=n_simulate,
+            seed=seed, alpha=alpha)
+
+    @staticmethod
+    def optimize_locs_width(tst_data, test_locs0, gwidth0, reg=1e-3,
+            max_iter=100,  tol_fun=1e-6, disp=False, locs_bounds_frac=100,
+            gwidth_lb=None, gwidth_ub=None):
+        """
+        Optimize the test locations and the Gaussian kernel width by 
+        maximizing a test power criterion. tst_data should not be the same data
+        as used in the actual test (i.e., should be a held-out set).  This
+        function is deterministic.
+
+        - tst_data: a TSTData object
+        - test_locs0: Jxd numpy array. Initial V.
+        - reg: reg to add to the mean/sqrt(variance) criterion to become
+            mean/sqrt(variance + reg)
+        - gwidth0: initial value of the Gaussian width^2
+        - max_iter: #gradient descent iterations
+        - tol_fun: termination tolerance of the objective value
+        - disp: True to print convergence messages
+        - locs_bounds_frac: When making box bounds for the test_locs, extend
+              the box defined by coordinate-wise min-max by std of each coordinate
+              (of the aggregated data) multiplied by this number.
+        - gwidth_lb: absolute lower bound on the Gaussian width^2
+        - gwidth_ub: absolute upper bound on the Gaussian width^2
+
+        #- If the lb, ub bounds are None, use fraction of the median heuristics 
+        #    to automatically set the bounds.
+        
+        Return (V test_locs, gaussian width, optimization info log)
+        """
+        J = test_locs0.shape[0]
+        X, Y = tst_data.xy()
+        n, d = X.shape
+        X = None 
+        Y = None
+
+        XY = tst_data.stack_xy()
+        # Parameterize the Gaussian width with its square root (then square later)
+        # to automatically enforce the positivity.
+        def obj(sqrt_gwidth, V):
+            k = kernel.KGauss(sigma2=sqrt_gwidth**2)
+            return -UMETest.power_criterion(tst_data, V, k, reg=reg,
+                    use_unbiased=True)
+
+        flatten = lambda gwidth, V: np.hstack((gwidth, V.reshape(-1)))
+        def unflatten(x):
+            sqrt_gwidth = x[0]
+            V = np.reshape(x[1:], (J, d))
+            return sqrt_gwidth, V
+
+        def flat_obj(x):
+            sqrt_gwidth, V = unflatten(x)
+            return obj(sqrt_gwidth, V)
+
+        # gradient
+        #grad_obj = autograd.elementwise_grad(flat_obj)
+        # Initial point
+        x0 = flatten(np.sqrt(gwidth0), test_locs0)
+        
+        #make sure that the optimized gwidth is not too small or too large.
+        fac_min = 1e-2 
+        fac_max = 1e2
+        med2 = util.meddistance(XY, subsample=1000)**2
+        if gwidth_lb is None:
+            gwidth_lb = max(fac_min*med2, 1e-2)
+        if gwidth_ub is None:
+            gwidth_ub = min(fac_max*med2, 1e5)
+
+        # Make a box to bound test locations
+        XY_std = np.std(XY, axis=0)
+        # XY_min: length-d array
+        XY_min = np.min(XY, axis=0)
+        XY_max = np.max(XY, axis=0)
+        # V_lb: J x d
+        V_lb = np.tile(XY_min - locs_bounds_frac*XY_std, (J, 1))
+        V_ub = np.tile(XY_max + locs_bounds_frac*XY_std, (J, 1))
+        # (J+1) x 2. Take square root because we parameterize with the square
+        # root
+        x0_lb = np.hstack((np.sqrt(gwidth_lb), np.reshape(V_lb, -1)))
+        x0_ub = np.hstack((np.sqrt(gwidth_ub), np.reshape(V_ub, -1)))
+        x0_bounds = list(zip(x0_lb, x0_ub))
+
+        # optimize. Time the optimization as well.
+        # https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html
+        grad_obj = autograd.elementwise_grad(flat_obj)
+
+        with util.ContextTimer() as timer:
+            opt_result = scipy.optimize.minimize(
+              flat_obj, x0, method='L-BFGS-B', 
+              bounds=x0_bounds,
+              tol=tol_fun, 
+              options={
+                  'maxiter': max_iter, 'ftol': tol_fun, 'disp': disp,
+                  'gtol': 1.0e-07,
+                  },
+              jac=grad_obj,
+            )
+
+        opt_result = dict(opt_result)
+        opt_result['time_secs'] = timer.secs
+        # x is the variable name used in scipy.optimize to refer to the
+        # variable being optimized over.
+        x_opt = opt_result['x']
+        sq_gw_opt, V_opt = unflatten(x_opt)
+        gw_opt = sq_gw_opt**2
+
+        assert util.is_real_num(gw_opt), 'gw_opt is not real. Was %s' % str(gw_opt)
+        return V_opt, gw_opt, opt_result
+
+# end of class GaussUMETest
+
+
 class METest(TwoSampleTest):
     """
-    A generic mean embedding (ME) test using a specified kernel. 
+    A generic normalized mean embedding (ME) test using a specified kernel.
+    "Normalized" means that the test statistic contains the inverse of the
+    covariance matrix. This is used in Chwialkovski et al., 2015 (NIPS) and
+    Jitkrittum et al., 2016 (NIPS).
     """
 
     def __init__(self, test_locs, k, alpha=0.01):
@@ -859,8 +1188,13 @@ class METest(TwoSampleTest):
 
 
 class MeanEmbeddingTest(TwoSampleTest):
-    """Class for two-sample test using squared difference of mean embeddings. 
-    Use Gaussian kernel."""
+    """Class for two-sample test using squared difference of the MMD witness
+    function, evaluated at a finite set of test locations. The statistic is
+    further normalized by the inverse covariance matrix. The test statistic is
+    call the normalized ME statistic.  Use Gaussian kernel.
+
+    See METest for an implementation of the same test for a generic kernel.
+    """
 
     def __init__(self, test_locs, gaussian_width, alpha=0.01):
         """
@@ -958,7 +1292,7 @@ class MeanEmbeddingTest(TwoSampleTest):
         """Compute a X.shape[0] x test_locs.shape[0] Gaussian kernel matrix 
         """
         n, d = X.shape
-        D2 = np.sum(X**2, 1)[:, np.newaxis] - 2*X.dot(test_locs.T) + np.sum(test_locs**2, 1)
+        D2 = np.sum(X**2, 1)[:, np.newaxis] - 2*np.dot(X, test_locs.T) + np.sum(test_locs**2, 1)
         K = np.exp(old_div(-D2,(2.0*gwidth2)))
         return K
 
@@ -1246,7 +1580,7 @@ def generic_nc_parameter(Z, reg='auto'):
             # First compute with reg=0. If no problem, do nothing. 
             # If the covariance is singular, make 0 eigenvalues positive.
             try:
-                s = n*np.linalg.solve(Sig, W).dot(W)
+                s = n*np.dot(np.linalg.solve(Sig, W), W)
             except np.linalg.LinAlgError:
                 try:
                     # singular matrix 

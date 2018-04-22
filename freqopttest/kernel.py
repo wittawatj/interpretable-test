@@ -7,7 +7,7 @@ from future.utils import with_metaclass
 __author__ = 'wittawat'
 
 from abc import ABCMeta, abstractmethod
-import numpy as np
+import autograd.numpy as np
 import scipy.signal as sig
 
 class Kernel(with_metaclass(ABCMeta, object)):
@@ -32,10 +32,10 @@ class KHoPoly(Kernel):
         self.degree = degree
 
     def eval(self, X1, X2):
-        return X1.dot(X2.T)**self.degree
+        return np.dot(X1, X2.T)**self.degree
 
     def pair_eval(self, X, Y):
-        return np.sum(X1*X2, 1)**self.degree
+        return np.sum(X*Y, 1)**self.degree
 
     def __str__(self):
         return 'KHoPoly(d=%d)'%self.degree
@@ -44,7 +44,7 @@ class KHoPoly(Kernel):
 
 class KLinear(Kernel):
     def eval(self, X1, X2):
-        return X1.dot(X2.T)
+        return np.dot(X1, X2.T)
 
     def pair_eval(self, X, Y):
         return np.sum(X*Y, 1)
@@ -74,7 +74,7 @@ class KGauss(Kernel):
         (n1, d1) = X1.shape
         (n2, d2) = X2.shape
         assert d1==d2, 'Dimensions of the two inputs must be the same'
-        D2 = np.sum(X1**2, 1)[:, np.newaxis] - 2*X1.dot(X2.T) + np.sum(X2**2, 1)
+        D2 = np.sum(X1**2, 1)[:, np.newaxis] - 2*np.dot(X1, X2.T) + np.sum(X2**2, 1)
         K = np.exp(old_div(-D2,self.sigma2))
         return K
 

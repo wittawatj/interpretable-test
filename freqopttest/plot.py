@@ -2,12 +2,13 @@
 A module for plotting experimental results
 """
 
-from builtins import range
 __author__ = 'wittawat'
+
+from builtins import range
 import freqopttest.ex.exglobal as exglo
 import freqopttest.glo as glo
 import matplotlib.pyplot as plt
-import numpy as np
+import autograd.numpy as np
 
 
 def plot_prob_stat_above_thresh(ex, fname, h1_true, func_xvalues, xlabel,

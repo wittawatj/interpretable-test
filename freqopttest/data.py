@@ -11,7 +11,7 @@ __author__ = 'wittawat'
 from abc import ABCMeta, abstractmethod
 import math
 import matplotlib.pyplot as plt
-import numpy as np
+import autograd.numpy as np
 import freqopttest.util as util
 import matplotlib.pyplot as plt
 import scipy.stats as stats
@@ -292,7 +292,7 @@ def gen_blobs(stretch, angle, blob_distance, num_blobs, num_samples):
     # rotation matrix
     r = np.array( [[math.cos(angle), -math.sin(angle)], [math.sin(angle), math.cos(angle)]] )
     eigenvalues = np.diag(np.array([np.sqrt(stretch), 1]))
-    mod_matix = r.dot(eigenvalues)
+    mod_matix = np.dot(r, eigenvalues)
     mean = old_div(float(blob_distance * (num_blobs-1)), 2)
     mu = np.random.randint(0, num_blobs,(num_samples, 2))*blob_distance - mean
     return np.random.randn(num_samples,2).dot(mod_matix) + mu

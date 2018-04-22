@@ -27,7 +27,7 @@ from independent_jobs.engines.SerialComputationEngine import SerialComputationEn
 from independent_jobs.engines.SlurmComputationEngine import SlurmComputationEngine
 from independent_jobs.tools.Log import logger
 import math
-import numpy as np
+import autograd.numpy as np
 import os
 import sys 
 
