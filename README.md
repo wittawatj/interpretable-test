@@ -1,5 +1,7 @@
 # Interpretable Test 
 
+[![Build Status](https://travis-ci.org/wittawatj/interpretable-test.svg?branch=master)](https://travis-ci.org/wittawatj/interpretable-test)
+
 **17 April 2018**:  We updated the code base to provide support for both Python
 3 and Python 2.7. Please contact [Wittawat Jitkrittum](http://wittawat.com) if
 you found a bug.
