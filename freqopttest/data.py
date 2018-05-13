@@ -350,11 +350,13 @@ class SSGaussVarDiff(SampleSource):
     P = N(0, I), Q = N(0, diag((2, 1, 1, ...))). Only the variances of the first 
     dimension differ."""
 
-    def __init__(self, d):
+    def __init__(self, d, var_d1=2.0):
         """
         d: dimension of the data 
+        var_d1: variance of the first dimension. 2 by default.
         """
         self.d = d
+        self.var_d1 = var_d1
 
     def dim(self):
         return self.d
@@ -364,7 +366,8 @@ class SSGaussVarDiff(SampleSource):
         np.random.seed(seed)
 
         d = self.d
-        std_y = np.diag(np.hstack((np.sqrt(2.0), np.ones(d-1) )))
+        var_d1 = self.var_d1
+        std_y = np.diag(np.hstack((np.sqrt(var_d1), np.ones(d-1) )))
         X = np.random.randn(n, d)
         Y = np.random.randn(n, d).dot(std_y)
         np.random.set_state(rstate)

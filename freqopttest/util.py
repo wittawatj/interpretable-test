@@ -54,6 +54,32 @@ class NumpySeedContext(object):
 
 # end class NumpySeedContext
 
+class ChunkIterable(object):
+    """
+    Construct an Iterable such that each call to its iterator returns a tuple
+    of two indices (f, t) where f is the starting index, and t is the ending
+    index of a chunk. f and t are (chunk_size) apart except for the last tuple
+    which will always cover the rest.
+    """
+    def __init__(self, start, end, chunk_size):
+        self.start = start
+        self.end = end
+        self.chunk_size = chunk_size
+    
+    def __iter__(self):
+        s = self.start
+        e = self.end
+        c = self.chunk_size
+        # Probably not a good idea to use list. Waste memory.
+        L = list(range(s, e, c))
+        L.append(e)
+        return zip(L, L[1:])
+
+# end ChunkIterable
+
+def constrain(val, min_val, max_val):
+    return min(max_val, max(min_val, val))
+
 def dist_matrix(X, Y):
     """
     Construct a pairwise Euclidean distance matrix of size X.shape[0] x Y.shape[0]

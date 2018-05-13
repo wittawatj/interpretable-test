@@ -279,33 +279,6 @@ class QuadMMDTest(TwoSampleTest):
         for each permutation. We might be able to improve this if needed.
         """
         return QuadMMDTest.permutation_list_mmd2_gram(X, Y, k, n_permute, seed)
-        #rand_state = np.random.get_state()
-        #np.random.seed(seed)
-
-        #XY = np.vstack((X, Y))
-        #nxy = XY.shape[0]
-        #nx = X.shape[0]
-        #ny = Y.shape[0]
-        #list_mmd2 = np.zeros(n_permute)
-        #for r in range(n_permute):
-        #   ind = np.random.choice(nxy, nxy, replace=False)
-        #   # divide into new X, Y
-        #   Xr = XY[ind[:nx]]
-        #   Yr = XY[ind[nx:]]
-        #   mmd2r, var = QuadMMDTest.h1_mean_var(Xr, Yr, k, is_var_computed=False)
-        #   list_mmd2[r] = mmd2r
-
-        #np.random.set_state(rand_state)
-        #return list_mmd2
-
-    @staticmethod
-    def permutation_list_mmd2_rahul(X, Y, k, n_permute=400, seed=8273):
-        """ Permutation by maintaining inverse indices. This approach is due to
-        Rahul (Soumyajit De) briefly described in "Generative Models and Model
-        Criticism via Optimized Maximum Mean Discrepancy" """
-        pass
-
-
 
     @staticmethod 
     def permutation_list_mmd2_gram(X, Y, k, n_permute=400, seed=8273):
@@ -1009,7 +982,7 @@ class UMETest(TwoSampleTest):
         if return_variance:
             # compute the variance 
             mu = np.mean(Z, axis=0) # length-J vector
-            variance = 4*np.mean(np.dot(Z, mu)**2) - 4*np.sum(mu**2)**2
+            variance = 4.0*np.mean(np.dot(Z, mu)**2) - 4.0*np.sum(mu**2)**2
             return mean_h1, variance
         else:
             return mean_h1
@@ -1142,6 +1115,71 @@ class GaussUMETest(UMETest):
         return V_opt, gw_opt, opt_result
 
 # end of class GaussUMETest
+
+class MMDWitness(object):
+    """
+    Construct a callable object representing the (empirically estimated) MMD
+    witness function.  The witness function g is defined as in Section 2.3 of 
+
+        Gretton, Arthur, et al. 
+        "A kernel two-sample test." 
+        Journal of Machine Learning Research 13.Mar (2012): 723-773.
+
+    The witness function requires taking two expectations over the two sample
+    generating distributionls. This is approximated by two empirical
+    expectations using the samples. The witness function
+    is a real function, which depends on the kernel k and two fixed samples.
+
+    The constructed object can be called as if it is a function: (J x d) numpy
+    array |-> length-J numpy array.
+    """
+
+    def __init__(self, k, X, Y):
+        """
+        :params k: a Kernel
+        :params X: a sample from p
+        :params Y: a sample from q
+        """
+        self.k = k
+        self.X = X
+        self.Y = Y
+
+    def __call__(self, V):
+        """
+        :params V: a numpy array of size J x d (data matrix)
+
+        :returns a one-dimensional length-J numpy array representing witness
+        evaluations at the J points.
+        """
+        J = V.shape[0]
+        k = self.k
+        X = self.X
+        Y = self.Y
+        n, d = X.shape
+
+        # When X, V contain many points, this can use a lot of memory.
+        # Process chunk by chunk.
+        block_rows = util.constrain(50000//d, 10, 5000)
+        sum_rows = []
+        for (f, t) in util.ChunkIterable(start=0, end=n, chunk_size=block_rows):
+            assert f<t
+            Xblk = X[f:t, :]
+            Yblk = Y[f:t, :]
+            # kernel evaluations
+            # b x J
+            Kx = k.eval(Xblk, V)
+            Ky = k.eval(Yblk, V)
+            # witness evaluations computed on only a subset of data
+            # ATTENTION: summing (instead of avf) may cause an overflow?
+            sum_rows.append((Kx-Ky).sum(axis=0))
+
+        # an array of length J
+        witness_evals = np.sum(np.vstack(sum_rows), axis=0)/float(n)
+        assert len(witness_evals) == J
+        return witness_evals
+
+# end of class SteinWitness
+
 
 
 class METest(TwoSampleTest):

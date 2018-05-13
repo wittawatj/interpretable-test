@@ -66,7 +66,7 @@ def ex_save_result(ex, result, *relative_path):
     dir_path = os.path.dirname(fpath)
     create_dirs(dir_path)
     # 
-    with open(fpath, 'w') as f:
+    with open(fpath, 'wb') as f:
         # expect result to be a dictionary
         pickle.dump(result, f)
 
@@ -85,7 +85,7 @@ def pickle_load(fpath):
     if not os.path.isfile(fpath):
         raise ValueError('%s does not exist' % fpath)
 
-    with open(fpath, 'r') as f:
+    with open(fpath, 'rb') as f:
         # expect a dictionary
         result = pickle.load(f)
     return result
